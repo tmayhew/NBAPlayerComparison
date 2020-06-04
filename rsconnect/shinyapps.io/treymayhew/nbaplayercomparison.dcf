@@ -1,0 +1,12 @@
+name: nbaplayercomparison
+title:
+username:
+account: treymayhew
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2397910
+bundleId: 3225996
+url: https://treymayhew.shinyapps.io/nbaplayercomparison/
+when: 1591230102.0569
+asMultiple: FALSE
+asStatic: FALSE

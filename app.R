@@ -5,11 +5,25 @@ library(shiny)
 library(shinydashboard)
 options(stringsAsFactors = F)
 
-cdf = read.csv("cdf.csv")[,-1]
-options = read.csv("options.csv")[,-1]
+cdf = read.csv("cdf.csv")[,-1]   # comes from NBAplayerLinks.R -- attaches a list of player names to corresponding basketball-reference links
+options = read.csv("options.csv")[,-1]  # comes from options.R -- simply a list of available statistics for the user to choose from
 abbr = data.frame(Abbreviation = c("/G", "/100P", options[c(1, 2, 21:63)]))
-desc = c("Per Game Statistic", "Per 100 Possessions Statistic", "Games", "Games Started", "Minutes Played", "Field Goals Made", "Field Goals Attempted","Field Goal Percentage", "3-Pointers Made", "3-Pointers Attempted", "3-Point Percentage","2-Pointers Made", "2-Pointers Attempted", "2-Point Percentage", "effective Field Goal Percentage", "Free Throws Made", "Free Throws Attempted", "Free Throw Percentage","Offensive Rebounds", "Defensive Rebounds", "Total Rebounds", "Assists", "Steals","Blocks", "Turnovers", "Personal Fouls", "Points", "Player Efficiency Rating", "True Shooting Percentage", "3-Point Attempt Rate", "Free Throw Rate", "Offensive Rebound Percentage", "Defensive Rebound Percentage", "Total Rebound Percentage","Assist Percentage", "Steal Percentage", "Block Percentage", "Turnover Percentage","Usage Percentage", "Offensive Win Shares", "Defensive Win Shares", "Win Shares", "Win Shares per 48 Minutes", "Offensive Box Plus-Minus", "Defensive Box Plus-Minus","Box Plus-Minus", "Value Over Replacement Player")
-statindex = cbind.data.frame(abbr, Description=desc)
+desc = c("Per Game Statistic", "Per 100 Possessions Statistic", "Games", "Games Started", 
+         "Minutes Played", "Field Goals Made", "Field Goals Attempted",
+         "Field Goal Percentage", "3-Pointers Made", "3-Pointers Attempted", 
+         "3-Point Percentage","2-Pointers Made", "2-Pointers Attempted", 
+         "2-Point Percentage", "effective Field Goal Percentage", "Free Throws Made", 
+         "Free Throws Attempted", "Free Throw Percentage","Offensive Rebounds", 
+         "Defensive Rebounds", "Total Rebounds", "Assists", "Steals","Blocks", 
+         "Turnovers", "Personal Fouls", "Points", "Player Efficiency Rating", 
+         "True Shooting Percentage", "3-Point Attempt Rate", "Free Throw Rate", 
+         "Offensive Rebound Percentage", "Defensive Rebound Percentage", 
+         "Total Rebound Percentage","Assist Percentage", "Steal Percentage", 
+         "Block Percentage", "Turnover Percentage","Usage Percentage", 
+         "Offensive Win Shares", "Defensive Win Shares", "Win Shares", 
+         "Win Shares per 48 Minutes", "Offensive Box Plus-Minus", 
+         "Defensive Box Plus-Minus","Box Plus-Minus", "Value Over Replacement Player")
+statindex = cbind.data.frame(abbr, Description=desc) # a table of the statistic abbreviations and descriptions to display in app output
 
 cdf$names = as.factor(cdf$names)
 get_htmlnba = function(playerName){
@@ -18,10 +32,10 @@ get_htmlnba = function(playerName){
   user_link = user_df[1,1]
   html = read_html(user_link)
   return(html)
-}
-scrape_nbadf = function(htmlinput, user_player){
+} # scrapes the corresponding html given an NBA player name
+scrape_nbadf = function(htmlinput, user_player){ 
   html = htmlinput
-  whole_body = html %>% html_nodes(xpath = '//comment()') %>% html_text() %>% paste(collapse = "") %>% read_html()
+  whole_body = html %>% html_nodes(xpath = '//comment()') %>% html_text() %>% paste(collapse = "") %>% read_html() # basketball-reference stores nodes as comments, so in order to scrape data further down the page, must pull comments first -- https://stackoverflow.com/questions/40616357/how-to-scrape-tables-inside-a-comment-tag-in-html-with-r
   
   # PER GAME
   table = html %>% html_nodes("div.table_outer_container") %>% html_node("div#div_per_game.overthrow.table_container") %>% html_node("table") %>% html_table()
@@ -31,14 +45,18 @@ scrape_nbadf = function(htmlinput, user_player){
   for (i in 1:nrow(data_)){if(is.na(as.numeric(data_$PTS[i]))){dat_ = dat_}else{dat_ = rbind.data.frame(dat_, data_[i,])}} #standardizes data
   for (i in 1:nrow(dat_)){for(j in 6:ncol(dat_)){if(dat_[i,j] == "" | is.na(dat_[i,j])){dat_[i,j] = 0}else{dat_[i,j] = dat_[i,j]}}} #std. data
   
-  dat_ = dat_ %>% mutate(G = as.double(G),PTS = as.double(PTS),PF = as.double(PF),AST = as.double(AST),TRB = as.double(TRB),`FT%` = as.double(`FT%`),
-                         FTA = as.double(FTA),FT = as.double(FT),`FG%` = as.double(`FG%`),FGA = as.double(FGA),FG = as.double(FG),MP = as.double(MP),GS = as.double(GS))
+  dat_ = dat_ %>% mutate(G = as.double(G),PTS = as.double(PTS),PF = as.double(PF),AST = as.double(AST),`FT%` = as.double(`FT%`),
+                         FTA = as.double(FTA), FT = as.double(FT),`FG%` = as.double(`FG%`),FGA = as.double(FGA),FG = as.double(FG))
   dat_ = dat_ %>% mutate(TOV = if(is.null(dat_$TOV)){0} else{as.double(TOV)},BLK = if(is.null(dat_$BLK)){0} else{as.double(BLK)},
                          DRB = if(is.null(dat_$DRB)){0} else{as.double(DRB)},ORB = if(is.null(dat_$ORB)){0} else{as.double(ORB)},
                          `eFG%` = if(is.null(dat_$`eFG%`)){0} else{as.double(`eFG%`)},`2P%` = if(is.null(dat_$`2P%`)){0} else{as.double(`2P%`)},
                          `2PA` = if(is.null(dat_$`2PA`)){0} else{as.double(`2PA`)},`2P` = if(is.null(dat_$`2P`)){0} else{as.double(`2P`)},
                          `3P%` = if(is.null(dat_$`3P%`)){0} else{as.double(`3P%`)},`3PA` = if(is.null(dat_$`3PA`)){0} else{as.double(`3PA`)},
-                         `3P` = if(is.null(dat_$`3P`)){0} else{as.double(`3P`)},STL = if(is.null(dat_$STL)){0} else{as.double(STL)})
+                         `3P` = if(is.null(dat_$`3P`)){0} else{as.double(`3P`)},STL = if(is.null(dat_$STL)){0} else{as.double(STL)},
+                         MP = if(is.null(dat_$MP)){0} else{as.double(MP)},
+                         GS = if(is.null(dat_$GS)){0} else{as.double(GS)},
+                         TRB = if(is.null(dat_$TRB)){0} else{as.double(TRB)})
+                           
   dat = dat_ %>% transmute(Season, Age, Tm, Lg, Pos, G, GS, `MP/G` = MP,`FG/G` = FG,`FGA/G` = FGA,`3P/G` = `3P`,`3PA/G` = `3PA`,`2P/G` = `2P`,`2PA/G` = `2PA`,`FT/G` = `FT`,`FTA/G` = `FTA`,`ORB/G` = `ORB`,`DRB/G` = `DRB`,`TRB/G` = `TRB`,`AST/G` = `AST`,`STL/G` = `STL`,`BLK/G` = `BLK`,`TOV/G` = `TOV`,`PF/G` = `PF`,`PTS/G` = `PTS`)
   dat.names = select(dat, Season, Age, Tm, Lg, Pos);dat.numeric = select(dat, -Season, -Age, -Tm, -Lg, -Pos);dat.numeric = dat.numeric %>% select_if(colSums(.) != 0)
   dat = cbind.data.frame(dat.names, dat.numeric)
@@ -52,14 +70,17 @@ scrape_nbadf = function(htmlinput, user_player){
   dat_ = NULL
   for (i in 1:nrow(data_)){if(is.na(as.numeric(data_$PTS[i]))){dat_ = dat_}else{dat_ = rbind.data.frame(dat_, data_[i,])}} #standardizes data
   for (i in 1:nrow(dat_)){for(j in 6:ncol(dat_)){if(dat_[i,j] == "" | is.na(dat_[i,j])){dat_[i,j] = 0}else{dat_[i,j] = dat_[i,j]}}} #std. data
-  dat_ = dat_ %>% mutate(G = as.double(G),PTS = as.double(PTS),PF = as.double(PF),AST = as.double(AST),TRB = as.double(TRB),`FT%` = as.double(`FT%`),
-                         FTA = as.double(FTA),FT = as.double(FT),`FG%` = as.double(`FG%`),FGA = as.double(FGA),FG = as.double(FG),MP = as.double(MP),GS = as.double(GS))
+  dat_ = dat_ %>% mutate(G = as.double(G),PTS = as.double(PTS),PF = as.double(PF),AST = as.double(AST),`FT%` = as.double(`FT%`),
+                         FTA = as.double(FTA),FT = as.double(FT),`FG%` = as.double(`FG%`),FGA = as.double(FGA),FG = as.double(FG))
   dat_ = dat_ %>% mutate(TOV = if(is.null(dat_$TOV)){0} else{as.double(TOV)},BLK = if(is.null(dat_$BLK)){0} else{as.double(BLK)},
                          DRB = if(is.null(dat_$DRB)){0} else{as.double(DRB)},ORB = if(is.null(dat_$ORB)){0} else{as.double(ORB)},
                          `eFG%` = if(is.null(dat_$`eFG%`)){0} else{as.double(`eFG%`)},`2P%` = if(is.null(dat_$`2P%`)){0} else{as.double(`2P%`)},
                          `2PA` = if(is.null(dat_$`2PA`)){0} else{as.double(`2PA`)},`2P` = if(is.null(dat_$`2P`)){0} else{as.double(`2P`)},
                          `3P%` = if(is.null(dat_$`3P%`)){0} else{as.double(`3P%`)},`3PA` = if(is.null(dat_$`3PA`)){0} else{as.double(`3PA`)},
-                         `3P` = if(is.null(dat_$`3P`)){0} else{as.double(`3P`)},STL = if(is.null(dat_$STL)){0} else{as.double(STL)})
+                         `3P` = if(is.null(dat_$`3P`)){0} else{as.double(`3P`)},STL = if(is.null(dat_$STL)){0} else{as.double(STL)},
+                         MP = if(is.null(dat_$MP)){0} else{as.double(MP)},
+                         GS = if(is.null(dat_$GS)){0} else{as.double(GS)},
+                         TRB = if(is.null(dat_$TRB)){0} else{as.double(TRB)})
   dat = dat_
   dat.names = select(dat, Season, Age, Tm, Lg, Pos);dat.numeric = select(dat, -Season, -Age, -Tm, -Lg, -Pos);dat.numeric = dat.numeric %>% select_if(colSums(.) != 0)
   dat = cbind.data.frame(dat.names, dat.numeric)
@@ -84,15 +105,18 @@ scrape_nbadf = function(htmlinput, user_player){
   for (i in 1:nrow(data_)){if(is.na(as.numeric(data_$PTS[i]))){dat_ = dat_}else{dat_ = rbind.data.frame(dat_, data_[i,])}} #standardizes data
   for (i in 1:nrow(dat_)){for(j in 6:ncol(dat_)){if(dat_[i,j] == "" | is.na(dat_[i,j])){dat_[i,j] = 0}else{dat_[i,j] = dat_[i,j]}}} #std. data
   dat_ = dat_[,-c(ncol(dat_)-2)]
-  dat_ = dat_ %>% mutate(G = as.double(G),PTS = as.double(PTS),PF = as.double(PF),TRB = as.double(TRB),`FT%` = as.double(`FT%`),
-                         FTA = as.double(FTA),FT = as.double(FT),`FG%` = as.double(`FG%`),FGA = as.double(FGA),FG = as.double(FG),MP = as.double(MP),GS = as.double(GS))
+  dat_ = dat_ %>% mutate(G = as.double(G),PTS = as.double(PTS),PF = as.double(PF),`FT%` = as.double(`FT%`),
+                         FTA = as.double(FTA),FT = as.double(FT),`FG%` = as.double(`FG%`),FGA = as.double(FGA),FG = as.double(FG))
   dat_ = dat_ %>% mutate(TOV = if(is.null(dat_$TOV)){0} else{as.double(TOV)},BLK = if(is.null(dat_$BLK)){0} else{as.double(BLK)},
                          DRB = if(is.null(dat_$DRB)){0} else{as.double(DRB)},ORB = if(is.null(dat_$ORB)){0} else{as.double(ORB)},
                          `ORtg` = if(is.null(dat_$`ORtg`)){0} else{as.double(`ORtg`)},`DRtg` = if(is.null(dat_$`DRtg`)){0} else{as.double(`DRtg`)},
                          `2P%` = if(is.null(dat_$`2P%`)){0} else{as.double(`2P%`)}, AST = if(is.null(dat_$AST)){0} else{as.double(AST)},
                          `2PA` = if(is.null(dat_$`2PA`)){0} else{as.double(`2PA`)},`2P` = if(is.null(dat_$`2P`)){0} else{as.double(`2P`)},
                          `3P%` = if(is.null(dat_$`3P%`)){0} else{as.double(`3P%`)},`3PA` = if(is.null(dat_$`3PA`)){0} else{as.double(`3PA`)},
-                         `3P` = if(is.null(dat_$`3P`)){0} else{as.double(`3P`)},STL = if(is.null(dat_$STL)){0} else{as.double(STL)})
+                         `3P` = if(is.null(dat_$`3P`)){0} else{as.double(`3P`)},STL = if(is.null(dat_$STL)){0} else{as.double(STL)},
+                         MP = if(is.null(dat_$MP)){0} else{as.double(MP)},
+                         GS = if(is.null(dat_$GS)){0} else{as.double(GS)},
+                         TRB = if(is.null(dat_$TRB)){0} else{as.double(TRB)})
   dat = dat_ %>% transmute(Season, Age, Tm, Lg, Pos, G, GS, `FG/100P` = FG,`FGA/100P` = FGA,`3P/100P` = `3P`,`3PA/100P` = `3PA`,`2P/100P` = `2P`,`2PA/100P` = `2PA`,`FT/100P` = `FT`,`FTA/100P` = `FTA`,`ORB/100P` = `ORB`,`DRB/100P` = `DRB`,`TRB/100P` = `TRB`,`AST/100P` = `AST`,`STL/100P` = `STL`,`BLK/100P` = `BLK`,`TOV/100P` = `TOV`,`PF/100P` = `PF`,`PTS/100P` = `PTS`)
   dat.names = select(dat, Season, Age, Tm, Lg, Pos);dat.numeric = select(dat, -Season, -Age, -Tm, -Lg, -Pos);dat.numeric = dat.numeric %>% select_if(colSums(.) != 0)
   dat = cbind.data.frame(dat.names, dat.numeric)
@@ -118,9 +142,14 @@ scrape_nbadf = function(htmlinput, user_player){
   for (i in 1:nrow(dat_)){for(j in 6:ncol(dat_)){if(dat_[i,j] == "" | is.na(dat_[i,j])){dat_[i,j] = 0}else{dat_[i,j] = dat_[i,j]}}} #std. data
   ind = c();for (j in 6:ncol(dat_)){if (sum(as.double(dat_[,j])) == 0){ind = c(ind, j)} else{ind = ind}}
   dat_ = dat_[, -ind]
-  dat_ = dat_ %>% mutate(G = as.double(G),MP = as.double(MP),PER = as.double(PER),`TS%` = as.double(`TS%`),FTr = as.double(FTr),
-                         OWS = as.double(OWS),DWS = as.double(DWS),WS = as.double(WS),`WS/48` = as.double(`WS/48`))
-  dat = dat_ %>% mutate(`ORB%` = if(is.null(dat_$`ORB%`)){0} else{as.double(`ORB%`)},`DRB%` = if(is.null(dat_$`DRB%`)){0} else{as.double(`DRB%`)},`TRB%` = if(is.null(dat_$`TRB%`)){0} else{as.double(`TRB%`)},`AST%` = if(is.null(dat_$`AST%`)){0} else{as.double(`AST%`)},`STL%` = if(is.null(dat_$`STL%`)){0} else{as.double(`STL%`)},`BLK%` = if(is.null(dat_$`BLK%`)){0} else{as.double(`BLK%`)},`TOV%` = if(is.null(dat_$`TOV%`)){0} else{as.double(`TOV%`)},`USG%` = if(is.null(dat_$`USG%`)){0} else{as.double(`USG%`)},OBPM = if(is.null(dat_$OBPM)){0} else{as.double(OBPM)},DBPM = if(is.null(dat_$DBPM)){0} else{as.double(DBPM)},BPM = if(is.null(dat_$BPM)){0} else{as.double(BPM)},VORP = if(is.null(dat_$VORP)){0} else{as.double(VORP)})
+  dat_ = dat_ %>% mutate(G = as.double(G),`TS%` = as.double(`TS%`),FTr = as.double(FTr),OWS = as.double(OWS),DWS = as.double(DWS),WS = as.double(WS))
+  dat = dat_ %>% mutate(`ORB%` = if(is.null(dat_$`ORB%`)){0} else{as.double(`ORB%`)},`DRB%` = if(is.null(dat_$`DRB%`)){0} else{as.double(`DRB%`)},
+                        `TRB%` = if(is.null(dat_$`TRB%`)){0} else{as.double(`TRB%`)},`AST%` = if(is.null(dat_$`AST%`)){0} else{as.double(`AST%`)},
+                        `STL%` = if(is.null(dat_$`STL%`)){0} else{as.double(`STL%`)},`BLK%` = if(is.null(dat_$`BLK%`)){0} else{as.double(`BLK%`)},
+                        `TOV%` = if(is.null(dat_$`TOV%`)){0} else{as.double(`TOV%`)},`USG%` = if(is.null(dat_$`USG%`)){0} else{as.double(`USG%`)},
+                        OBPM = if(is.null(dat_$OBPM)){0} else{as.double(OBPM)},DBPM = if(is.null(dat_$DBPM)){0} else{as.double(DBPM)},
+                        BPM = if(is.null(dat_$BPM)){0} else{as.double(BPM)},VORP = if(is.null(dat_$VORP)){0} else{as.double(VORP)},
+                        MP = as.double(MP),PER = as.double(PER),`WS/48` = as.double(`WS/48`))
   dat.names = select(dat, Season, Age, Tm, Lg, Pos);dat.numeric = select(dat, -Season, -Age, -Tm, -Lg, -Pos);dat.numeric = dat.numeric %>% select_if(colSums(.) != 0)
   dat = cbind.data.frame(dat.names, dat.numeric)
   dat = dat %>% distinct(Season, .keep_all = T)
@@ -143,7 +172,7 @@ scrape_nbadf = function(htmlinput, user_player){
   for (i in 1:nrow(finaldf)){for (j in 1:ncol(finaldf)){if (is.na(finaldf[i,j])){finaldf[i,j] = 0}}}
   
   return(finaldf)
-}
+} # given a player name and corresponding html, returns career dataframe including all statistics
 scrape_accolades = function(html_input, user_player){
   li.a = html_input %>% html_nodes("li") %>% html_node("a") %>% html_text()
   firs = match("Full Site Menu Below", li.a) + 1
@@ -155,7 +184,7 @@ scrape_accolades = function(html_input, user_player){
   }
   acc = li.a[firs:last]
   
-  hof = c();as = c();roy = c();mvp = c();fmvp = c();scmp = c();chmp = c();allnba = c();alld = c();allr = c()
+  hof = c();as = c();roy = c();mvp = c();fmvp = c();scmp = c();chmp = c();allnba = c();alld = c();allr = c();x6m = c()
   for (i in 1:length(acc)){
     s = strsplit(acc[i], "")[[1]]
     if (paste(s, collapse = "") == "Hall of Fame"){hof = c(hof,1)}else{hof = c(hof,0)}
@@ -248,12 +277,23 @@ scrape_accolades = function(html_input, user_player){
         allr = allr
       }
     }
+    
+    if (length(s) < 9){
+      x6m = x6m
+    } else{
+      if (paste(s[(length(s)-8):length(s)], collapse = "") == "Sixth Man"){
+        x6m = c(paste(s[grepl("[0-9]",s)], collapse = ""),x6m) %>% as.numeric()
+      } else{
+        x6m = x6m
+      }
+    }
   }
   
   accdf = data.frame(player = user_player,
                      allstar = ifelse(is.null(as),0,ifelse(as > 40,1,as)),
                      allnba = ifelse(is.null(allnba),0,ifelse(allnba > 40,1,allnba)),
                      alld = ifelse(is.null(alld),0,ifelse(alld > 40,1,alld)),
+                     x6m = ifelse(is.null(x6m),0,ifelse(x6m > 40,1,x6m)),
                      scmp = ifelse(is.null(scmp),0,ifelse(scmp > 40,1,scmp)),
                      mvp = ifelse(is.null(mvp),0,ifelse(mvp > 40,1,mvp)),
                      fmvp = ifelse(is.null(fmvp),0,ifelse(fmvp > 40,1,fmvp)),
@@ -262,13 +302,13 @@ scrape_accolades = function(html_input, user_player){
                      allr = ifelse(sum(allr) == 1,"Yes","No"),
                      hof = ifelse(sum(hof) == 1,"Yes","No"))
   return(accdf)
-}
+} # scrapes the player's awards an honors (found at the top of the basketball-reference page)
 primedf = function(player1d, player2d, i = 1){
   p1p1 = player1d[1:i,] %>% summarise(Player = Player[1], G = sum(G),`PTS/G` = round(sum(PTS)/G,2),`TRB/G` = round(sum(TRB)/G,2),`AST/G` = round(sum(AST)/G,2),`TS%` = round(sum((`TS%`*FGA))/sum(FGA),4),`FT%` = round(sum((`FT%`*FTA))/sum(FTA),4),PER = round(sum(PER*G)/(G*i),2),WS = round(sum(WS*G)/(G*i),2))
   p2p1 = player2d[1:i,] %>% summarise(Player = Player[1], G = sum(G),`PTS/G` = round(sum(PTS)/G,2),`TRB/G` = round(sum(TRB)/G,2),`AST/G` = round(sum(AST)/G,2),`TS%` = round(sum((`TS%`*FGA))/sum(FGA),4),`FT%` = round(sum((`FT%`*FTA))/sum(FTA),4),PER = round(sum(PER*G)/(G*i),2),WS = round(sum(WS*G)/(G*i),2))
   table = rbind.data.frame(p1p1, p2p1)
   return(table)
-}
+} # takes in both players' data and a number (x) and returns the best x years data averages ("best" calculated by a linear combination of simplified GmSc, PER, WS)
 
 ui <- fluidPage(
   headerPanel("NBA Player Comparison"),
@@ -283,13 +323,14 @@ ui <- fluidPage(
     tableOutput('statindex')
   ),
   mainPanel(
+    titlePanel(h1("Career Production Comparison")),
     plotOutput("comparison"),
-    titlePanel(h1("Prime Statistics Comparison")),
+    titlePanel(h1("Prime Comparison")),
     selectInput('pkyrs', "Years of Interest:", paste0(1:20, "-year peak")),
     formattableOutput("prime"),
     titlePanel(h1("Statistical Progression")),
     selectInput('statint', "Statistic of Interest:", options,
-                selected = "PER"),
+                selected = "WS"),
     plotOutput("prog"),
     formattableOutput("progtable")
   )
@@ -313,7 +354,7 @@ server <- function(input, output, session) {
     acc1 = scrape_accolades(player1HTML(), input$player1)
     acc2 = scrape_accolades(player2HTML(), input$player2)
     accdf = rbind.data.frame(acc1, acc2)
-    names(accdf) = c("Player", "All Star Selections", "All-NBA Selections","All-Defensive Team Selections", "Scoring Titles","Most Valuable Player Awards", "Finals Most Valuable Player Awards",  "Championships", "Rookie Of the Year", "All-Rookie Team", "Hall of Fame Induction")
+    names(accdf) = c("Player", "All Star Selections", "All-NBA Selections","All-Defensive Team Selections", "6th Man of the Year Awards", "Scoring Titles","Most Valuable Player Awards", "Finals Most Valuable Player Awards",  "Championships", "Rookie Of the Year", "All-Rookie Team", "Hall of Fame Induction")
     accdf = t(accdf)
     colnames(accdf) = accdf[1,]
     accdf = accdf[-1,]
@@ -359,16 +400,17 @@ server <- function(input, output, session) {
     
     careertot = rbind.data.frame(player1sum, player2sum)
     g = careertot %>% select(-MP) %>% gather("Stat", "Value", -Player) 
+    g$Player = factor(g$Player, levels = c(input$player1, input$player2))
     g %>% ggplot(aes(x = Stat, y = Value)) + geom_bar(stat = "identity", position = "dodge", width = I(1/2), aes(fill = Player)) + theme_classic() + scale_fill_manual("",values = c("black", "grey65")) +
-      scale_y_continuous("") + scale_x_discrete("") + ggtitle("Career Comparison") +
+      scale_y_continuous("") + scale_x_discrete("") +
       theme(legend.position = c(0.15,0.90))
   })
   output$prime <- renderFormattable({
     num = primey()
     s = strsplit(num, "")[[1]]
     num = as.numeric(paste(s[grepl("[0-9]", s)], collapse = ""))
-    player1d = scrape_nbadf(player1HTML(), input$player1) %>% mutate(GmSc = 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
-    player2d = scrape_nbadf(player2HTML(), input$player2) %>% mutate(GmSc = 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
+    player1d = scrape_nbadf(player1HTML(), input$player1) %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
+    player2d = scrape_nbadf(player2HTML(), input$player2) %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
     table = primedf(player1d, player2d, i = num)
     greater_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x > mean(x), "bold", NA)))
     formattable(table, list(`G` = greater_bold, `PTS/G` = greater_bold, `TRB/G` = greater_bold, `AST/G` = greater_bold, `TS%` = greater_bold, `FT%` = greater_bold, PER = greater_bold, WS = greater_bold))
@@ -381,6 +423,7 @@ server <- function(input, output, session) {
     if (ncol(player1d) > ncol(player2d)){bind1 = player2d;bind2 = player1d} else{bind1 = player1d;bind2 = player2d}
     bind2 = bind2[,colnames(bind1)]
     compdf = rbind.data.frame(bind1, bind2)
+    compdf$Player = factor(compdf$Player, levels = c(input$player1, input$player2))
     ind = which(names(compdf) == sel)
     if (is_empty(ind)){
       ggplot() + ggtitle("The statistic you selected is not available for at least one player!", "Try choosing another.") + theme_minimal()    
@@ -405,18 +448,18 @@ server <- function(input, output, session) {
     compdf = rbind.data.frame(bind1, bind2)
     ind = which(names(compdf) == sel)
     ftable = compdf %>% arrange(Season, Player)
-    left = ftable %>% select(Player, Season, Age, Tm, `PTS/G`, `TRB/G`, `AST/G`, `PER`, `WS`)
+    left = ftable %>% select(Player, Season, Age, Tm, `PTS/G`, `TRB/G`, `AST/G`, `PER`)
     right = ftable[,ind]
-    if (is_null(ind)){
+    if (is_empty(ind)){
       newtable = left
     } else{
       if (colnames(compdf)[ind] %in% names(left)){
         newtable = left
       } else{
         newtable = cbind.data.frame(left, right)
+        names(newtable)[ncol(newtable)] = sel
       }
     }
-    names(newtable)[ncol(newtable)] = sel
     formattable(newtable)
   })
 }
