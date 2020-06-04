@@ -1,8 +1,8 @@
 # NBAPlayerComparison
 
-A web application that compares any two individual players throughout the NBA's history (since 1952, when most basic counting statistics were tracked). 
+A web application that compares any two individual players throughout the NBA's history (since 1952, when most basic counting statistics were tracked) along with their career awards and regular season statistics. 
 
-This application allows the user to input two former or current NBA players and then analyze career accolades, career production, basic prime (or peak) statistics, and the career progression of any statistic that is tracked for both players.
+This app allows the user to input two former or current NBA players and then analyze career accolades, career regular season production, basic prime (or peak) regular season statistics, and the career progression of any regular season statistic that was tracked for both players.
 
 ## Updates:
 
