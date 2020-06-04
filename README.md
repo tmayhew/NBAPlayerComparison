@@ -10,7 +10,7 @@ This application allows the user to input two former or current NBA players and 
   
 ## Live Web App:
 
-  Updates to the application will be posted to this github page and then deployed to https://treymayhew.shinyapps.io/nbaplayercomparison/; that is where the latest version of the web application can be accessed by anybody with an internet connection.
+  Updates to the application will be posted to this github page and then deployed to https://tmayhew.shinyapps.io/nbaplayercomparison/; that is where the latest version of the web application can be accessed by anybody with an internet connection.
   
 
 
