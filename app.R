@@ -383,7 +383,7 @@ server <- function(input, output, session) {
     if (!is.null(x3pta)){player1car = cbind.data.frame(player1car, `3PA` = player1d[,"3PA"])} else{player1car = player1car}
     player1sum = player1car %>% summarise(Player = input$player1,MP = sum(MP),FG = sum(FG),FGA = sum(FGA),FT = sum(FT),FTA = sum(FTA),TRB = sum(TRB),AST = sum(AST),PTS = sum(PTS))
     if (!is.null(steals)){player1sum = cbind.data.frame(player1sum, STL = sum(player1d[,"STL"]))} else{player1sum = player1sum}
-    if (!is.null(blocks)){player1sum = cbind.data.frame(player1sum, BLK = sum(player1d[,"STL"]))} else{player1sum = player1sum}
+    if (!is.null(blocks)){player1sum = cbind.data.frame(player1sum, BLK = sum(player1d[,"BLK"]))} else{player1sum = player1sum}
     if (!is.null(x3pt)){player1sum = cbind.data.frame(player1sum, `3P` = sum(player1d[,"3P"]))} else{player1sum = player1sum}
     if (!is.null(x3pta)){player1sum = cbind.data.frame(player1sum, `3PA` = sum(player1d[,"3PA"]))} else{player1sum = player1sum}
     
@@ -394,7 +394,7 @@ server <- function(input, output, session) {
     if (!is.null(x3pta)){player2car = cbind.data.frame(player2car, `3PA` = player2d[,"3PA"])} else{player2car = player2car}
     player2sum = player2car %>% summarise(Player = input$player2,MP = sum(MP),FG = sum(FG),FGA = sum(FGA),FT = sum(FT),FTA = sum(FTA),TRB = sum(TRB),AST = sum(AST),PTS = sum(PTS))
     if (!is.null(steals)){player2sum = cbind.data.frame(player2sum, STL = sum(player2d[,"STL"]))} else{player2sum = player2sum}
-    if (!is.null(blocks)){player2sum = cbind.data.frame(player2sum, BLK = sum(player2d[,"STL"]))} else{player2sum = player2sum}
+    if (!is.null(blocks)){player2sum = cbind.data.frame(player2sum, BLK = sum(player2d[,"BLK"]))} else{player2sum = player2sum}
     if (!is.null(x3pt)){player2sum = cbind.data.frame(player2sum, `3P` = sum(player2d[,"3P"]))} else{player2sum = player2sum}
     if (!is.null(x3pta)){player2sum = cbind.data.frame(player2sum, `3PA` = sum(player2d[,"3PA"]))} else{player2sum = player2sum}
     
@@ -431,7 +431,7 @@ server <- function(input, output, session) {
       ggplot(compdf, aes(x = compdf$Yr, y = compdf[,ind])) +
         geom_line(aes(color = compdf$Player)) + 
         geom_point(aes(color = compdf$Player)) +
-        scale_x_continuous("Year of Career") + scale_y_continuous("") +
+        scale_x_continuous("Year of Career") + scale_y_continuous(paste(sel)) +
         theme_classic() + scale_color_manual("",values = c("black", "grey65"))
     }
   })
