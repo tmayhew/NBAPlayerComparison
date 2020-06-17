@@ -5,8 +5,8 @@ account: tmayhew
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2397910
-bundleId: 3240544
+bundleId: 3284873
 url: https://tmayhew.shinyapps.io/nbaplayercomparison/
-when: 1591589161.0911
+when: 1592435879.1056
 asMultiple: FALSE
 asStatic: FALSE
