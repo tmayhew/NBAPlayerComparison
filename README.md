@@ -1,4 +1,4 @@
-# NBAPlayerComparison
+# NBA Player Comparison
 
 A web application that compares any two individual players throughout the NBA's history (since 1952, when most basic counting statistics were tracked) along with their career awards and regular season statistics. 
 
