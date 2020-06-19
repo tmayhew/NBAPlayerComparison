@@ -12,13 +12,13 @@ S1 = finaldf %>% filter(allstar == 1) %>% select(PC1, PC2) %>% cov()
 S2 = finaldf %>% filter(allstar == 0) %>% select(PC1, PC2) %>% cov()
 Sp = ((finaldf %>% filter(allstar == 1) %>% nrow() - 1)*S1 + (finaldf %>% filter(allstar == 0) %>% nrow() - 1)*S2)/(finaldf %>% filter(allstar == 0) %>% nrow() + finaldf %>% filter(allstar == 1) %>% nrow() - 2)
 w = solve(Sp)%*%(x1bar - x2bar)
-limit = (0.50)*t(w)%*%(x1bar+x2bar) + 5.85
+limit = (0.50)*t(w)%*%(x1bar+x2bar) + 5.80
 
 #finaldf %>% ggplot(aes(x = PC1, y = PC2, color = as.factor(allstar))) + geom_hline(yintercept = 0, linetype = "dashed", alpha = I(.55)) + geom_vline(xintercept = 0, linetype = "dashed", alpha = I(.55)) + geom_point(alpha = I(1/2)) + scale_x_continuous("Efficiency") + scale_y_continuous("Volume") + theme_bw() + scale_color_manual(values = c("grey85", "grey15")) +
-  #geom_abline(slope = (-w[1,1]/w[2,1]), intercept = (limit/w[2,1]), linetype = "dashed", color = "red2") +
-  #theme(legend.position = "none") + ggtitle("Seasons Comparison", "The Efficiency/Volume Frontier") + annotate(geom="text", x=4.5, y=2.25, label="Linear Discriminant Classification Boundary", color="red",angle = 5)
+#  geom_abline(slope = (-w[1,1]/w[2,1]), intercept = (limit/w[2,1]), linetype = "dashed", color = "red2") +
+#  theme(legend.position = "none") + ggtitle("Seasons Comparison", "The Efficiency/Volume Frontier") + annotate(geom="text", x=4.5, y=2.0, label="Linear Discriminant Classification Boundary", color="red",angle = 2.5)
 
-finaldf = finaldf %>% mutate(value = -0.2589365*PC1 + 1.4907317*PC2,limit = limit, as.pred = ifelse(value > limit, 1, 0))
+finaldf = finaldf %>% mutate(value = -0.1016093*PC1 + 1.4341219*PC2,limit = limit, as.pred = ifelse(value > limit, 1, 0))
 pred1 = finaldf %>% filter(as.pred == 1)
 pred0 = finaldf %>% filter(as.pred == 0)
 paste("Players above the LDA line have probability", sum(pred1$allstar)/nrow(pred1), "of making an all-star team")
