@@ -517,7 +517,7 @@ server <- function(input, output, session) {
       ggplot(aes(x = Eff, y = Vol, color = Player)) + 
       geom_hline(yintercept = 0, linetype = "dashed", alpha = I(.55)) + 
       geom_vline(xintercept = 0, linetype = "dashed", alpha = I(.55)) + 
-      scale_x_continuous("Efficiency") + scale_y_continuous("Volume") + theme_classic() + 
+      scale_x_continuous("Efficiency Principal Component") + scale_y_continuous("Volume Principal Component") + theme_classic() + 
       scale_color_manual(values = c(color, "grey70")) + 
       geom_abline(slope = (-w[1,1]/w[2,1]), intercept = 
                     (limit1/w[2,1]), linetype = "dashed", color = "#d29914") +

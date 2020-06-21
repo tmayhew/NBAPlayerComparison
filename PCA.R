@@ -43,7 +43,6 @@ tot_scrape = function(year){
   adv = adv %>% distinct(Player, .keep_all = T)
   return(adv)
 }
-
 for (i in 1952:2020){
   year = i
   adv = adv_scrape(year)
@@ -79,7 +78,7 @@ for (i in 1952:2020){
     Vol = c(Vol, t(abs(loa2[,1]))%*%t(as.matrix(fdf[i,vol])))
   }
   fdf_ = cbind.data.frame(fdf, Eff, Vol)
-  fdf_$Player = iconv(fdf_$Player, from="UTF-8",to="ASCII//TRANSLIT")
+  fdf_$Player = iconv(fdf_$Player, to="ASCII//TRANSLIT")
   as.list <- read.csv(paste0('aslists/as', year, '.csv'))$Player
   for (i in 1:nrow(fdf_)){if (fdf_$Player[i] %in% as.list){fdf_$allstar[i] = 1} else{fdf_$allstar[i] = 0}}
   finaldf = fdf_ %>% select(Player, Eff, Vol, allstar)
@@ -92,6 +91,11 @@ for (i in 1952:2020){
   fin = rbind.data.frame(fin, cbind.data.frame(read.csv(paste0('newdata/', i, 'PC.csv'))[,-1], i))
 }
 fin = fin %>% drop_na()
+for (i in 1:nrow(fin)){
+  if (fin$Player[i] == "Nene"){
+    fin$Player[i] = "Nene Hilario"
+  }
+}
 write.csv(fin, 'finaldf.csv')
 
 
