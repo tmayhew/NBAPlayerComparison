@@ -8,6 +8,7 @@ options(stringsAsFactors = F)
 cdf = read.csv("cdf.csv")[,-1]   # comes from NBAplayerLinks.R -- attaches a list of player names to corresponding basketball-reference links
 options = read.csv("options.csv")[,-1]  # comes from options.R -- simply a list of available statistics for the user to choose from
 abbr = data.frame(Abbreviation = c("/G", "/100P", options[c(1, 2, 21:63)]))
+tmhex = read.csv('newdata/teamabbreviations.csv')[,-1] # team hex colors
 desc = c("Per Game Statistic", "Per 100 Possessions Statistic", "Games", "Games Started", 
          "Minutes Played", "Field Goals Made", "Field Goals Attempted",
          "Field Goal Percentage", "3-Pointers Made", "3-Pointers Attempted", 
@@ -413,10 +414,20 @@ server <- function(input, output, session) {
     if (!is.null(x3pt)){player2sum = cbind.data.frame(player2sum, `3P` = sum(player2d[,"3P"]))} else{player2sum = player2sum}
     if (!is.null(x3pta)){player2sum = cbind.data.frame(player2sum, `3PA` = sum(player2d[,"3PA"]))} else{player2sum = player2sum}
     
+    p1ord = player1d %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
+    team = p1ord %>% select(Tm) %>% head(5) %>% group_by(Tm) %>% summarize(n = n(),.groups = 'drop') %>% arrange(desc(n))
+    playerTeam = ifelse(team$n[1] > 0.50*(min(nrow(player1d), 5)), team$Tm[1], "None")
+    if (playerTeam %in% tmhex$abb){color = tmhex$hex[grep(playerTeam, tmhex$abb)]} else{color = "black"}
+    
     careertot = rbind.data.frame(player1sum, player2sum)
-    g = careertot %>% select(-MP) %>% gather("Stat", "Value", -Player) 
-    g$Player = factor(g$Player, levels = c(input$player1, input$player2))
-    g %>% ggplot(aes(x = Stat, y = Value)) + geom_bar(stat = "identity", position = "dodge", width = I(1/2), aes(fill = Player)) + theme_classic() + scale_fill_manual("",values = c("black", "grey65")) +
+    g = careertot %>% select(-MP) %>% gather("Stat", "Value", -Player)
+    if (input$player1 != input$player2){
+      g$Player = factor(g$Player, levels = c(input$player1, input$player2))
+    } else{
+      g$Player = g$Player
+    }
+    
+    g %>% ggplot(aes(x = Stat, y = Value)) + geom_bar(stat = "identity", position = "dodge", width = I(1/2), aes(fill = Player)) + theme_classic() + scale_fill_manual("",values = c(color, "grey70")) +
       scale_y_continuous("") + scale_x_discrete("") +
       theme(legend.position = c(0.15,0.90))
   })
@@ -428,6 +439,7 @@ server <- function(input, output, session) {
     player2d = scrape_nbadf(player2HTML(), input$player2) %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
     table = primedf(player1d, player2d, i = num)
     greater_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x > mean(x), "bold", NA)))
+    if (input$player1 == input$player2){table = table[1,]}
     formattable(table, list(`G` = greater_bold, `PTS/G` = greater_bold, `TRB/G` = greater_bold, `AST/G` = greater_bold, `TS%` = greater_bold, `FT%` = greater_bold, PER = greater_bold, WS = greater_bold))
   })
   output$prog <- renderPlot({
@@ -438,8 +450,19 @@ server <- function(input, output, session) {
     bind1 = player1d[,commonvars]
     bind2 = player2d[,commonvars]
     compdf = rbind.data.frame(bind1, bind2)
-    compdf$Player = factor(compdf$Player, levels = c(input$player1, input$player2))
+    if (input$player1 != input$player2){
+      compdf$Player = factor(compdf$Player, levels = c(input$player1, input$player2))
+    } else{
+      compdf$Player = compdf$Player
+    }
+    
     ind = which(names(compdf) == sel)
+    
+    p1ord = player1d %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
+    team = p1ord %>% select(Tm) %>% head(5) %>% group_by(Tm) %>% summarize(n = n(),.groups = 'drop') %>% arrange(desc(n))
+    playerTeam = ifelse(team$n[1] > 0.50*(min(nrow(player1d), 5)), team$Tm[1], "None")
+    if (playerTeam %in% tmhex$abb){color = tmhex$hex[grep(playerTeam, tmhex$abb)]} else{color = "black"}
+    
     if (is_empty(ind)){
       ggplot() + ggtitle("The statistic you selected is not available for at least one player!", "Try choosing another.") + theme_minimal()    
     } else{
@@ -447,7 +470,7 @@ server <- function(input, output, session) {
         geom_line(aes(color = compdf$Player)) + 
         geom_point(aes(color = compdf$Player)) +
         scale_x_continuous("Year of Career") + scale_y_continuous(paste(sel)) +
-        theme_classic() + scale_color_manual("",values = c("black", "grey65"))
+        theme_classic() + scale_color_manual("",values = c(color, "grey70"))
     }
   })
   output$statindex <- renderTable({
@@ -458,19 +481,19 @@ server <- function(input, output, session) {
     player2 = input$player2
     finaldf = finalasdf
     x1bar = finaldf %>% filter(allstar == 1) %>% summarise(
-      x1 = mean(PC1),
-      x2 = mean(PC2)
+      x1 = mean(Eff),
+      x2 = mean(Vol)
     ) %>% as.matrix() %>% t()
     x2bar = finaldf %>% filter(allstar == 0) %>% summarise(
-      x1 = mean(PC1),
-      x2 = mean(PC2)
+      x1 = mean(Eff),
+      x2 = mean(Vol)
     ) %>% as.matrix() %>% t()
-    S1 = finaldf %>% filter(allstar == 1) %>% select(PC1, PC2) %>% cov()
-    S2 = finaldf %>% filter(allstar == 0) %>% select(PC1, PC2) %>% cov()
+    S1 = finaldf %>% filter(allstar == 1) %>% select(Eff, Vol) %>% cov()
+    S2 = finaldf %>% filter(allstar == 0) %>% select(Eff, Vol) %>% cov()
     Sp = ((finaldf %>% filter(allstar == 1) %>% nrow() - 1)*S1 + (finaldf %>% filter(allstar == 0) %>% nrow() - 1)*S2)/(finaldf %>% filter(allstar == 0) %>% nrow() + finaldf %>% filter(allstar == 1) %>% nrow() - 2)
     w = solve(Sp)%*%(x1bar - x2bar)
-    limit1 = (0.50)*t(w)%*%(x1bar+x2bar) + 5.80
-    limit2 = (0.50)*t(w)%*%(x1bar+x2bar) + 1.065
+    limit1 = (0.50)*t(w)%*%(x1bar+x2bar) + 6.25
+    limit2 = (0.50)*t(w)%*%(x1bar+x2bar) + 1.085
     user_names = c(player1, player2)
     toplot = finaldf %>% filter(Player %in% user_names)
     for (i in 1:nrow(toplot)){
@@ -478,13 +501,24 @@ server <- function(input, output, session) {
       l2 = paste(sp[3:4], collapse = "")
       toplot$Yr[i] = paste0("'",l2)
     }
-    toplot$Player = factor(toplot$Player, levels = c(player1, player2))
+    player1d = scrape_nbadf(player1HTML(), input$player1)
+    p1ord = player1d %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
+    team = p1ord %>% select(Tm) %>% head(5) %>% group_by(Tm) %>% summarize(n = n(),.groups = 'drop') %>% arrange(desc(n))
+    playerTeam = ifelse(team$n[1] > 0.50*(min(nrow(player1d), 5)), team$Tm[1], "None")
+    if (playerTeam %in% tmhex$abb){color = tmhex$hex[grep(playerTeam, tmhex$abb)]} else{color = "black"}
+    
+    if (input$player1 != input$player2){
+      toplot$Player = factor(toplot$Player, levels = c(player1, player2))
+    } else{
+      toplot$Player = toplot$Player
+    }
+    
     toplot %>% 
-      ggplot(aes(x = PC1, y = PC2, color = Player)) + 
+      ggplot(aes(x = Eff, y = Vol, color = Player)) + 
       geom_hline(yintercept = 0, linetype = "dashed", alpha = I(.55)) + 
       geom_vline(xintercept = 0, linetype = "dashed", alpha = I(.55)) + 
       scale_x_continuous("Efficiency") + scale_y_continuous("Volume") + theme_classic() + 
-      scale_color_manual(values = c("black", "grey65")) + 
+      scale_color_manual(values = c(color, "grey70")) + 
       geom_abline(slope = (-w[1,1]/w[2,1]), intercept = 
                     (limit1/w[2,1]), linetype = "dashed", color = "#d29914") +
       geom_abline(slope = (-w[1,1]/w[2,1]), intercept = 
@@ -492,7 +526,7 @@ server <- function(input, output, session) {
       geom_text(aes(label = Yr), color = "white") +
       theme(legend.position = c(0.10, .90))
     
-  }, height = 650)
+  }, height = 570)
 }
 
 shinyApp(ui, server)
