@@ -46,6 +46,9 @@ scrape_nbadf = function(htmlinput, user_player){
   dat_ = NULL
   for (i in 1:nrow(data_)){if(is.na(as.numeric(data_$PTS[i]))){dat_ = dat_}else{dat_ = rbind.data.frame(dat_, data_[i,])}} #standardizes data
   for (i in 1:nrow(dat_)){for(j in 6:ncol(dat_)){if(dat_[i,j] == "" | is.na(dat_[i,j])){dat_[i,j] = 0}else{dat_[i,j] = dat_[i,j]}}} #std. data
+  if (any(names(dat_) == '')){dat_ = dat_[,-(which(names(dat_) == ''))]} else{dat_ = dat_}
+  if (any(names(dat_) == 'Trp Dbl')){dat_ = dat_[,-(which(names(dat_) == 'Trp Dbl'))]} else{dat_ = dat_}
+  
   dat_ = dat_ %>% mutate(G = as.double(G),PTS = as.double(PTS),PF = as.double(PF),AST = as.double(AST),`FT%` = as.double(`FT%`),
                          FTA = as.double(FTA),FT = as.double(FT),`FG%` = as.double(`FG%`),FGA = as.double(FGA),FG = as.double(FG))
   dat_ = dat_ %>% mutate(TOV = if(is.null(dat_$TOV)){0} else{as.double(TOV)},BLK = if(is.null(dat_$BLK)){0} else{as.double(BLK)},
@@ -107,7 +110,8 @@ scrape_nbadf = function(htmlinput, user_player){
   dat_ = NULL
   for (i in 1:nrow(data_)){if(is.na(as.numeric(data_$PTS[i]))){dat_ = dat_}else{dat_ = rbind.data.frame(dat_, data_[i,])}} #standardizes data
   for (i in 1:nrow(dat_)){for(j in 6:ncol(dat_)){if(dat_[i,j] == "" | is.na(dat_[i,j])){dat_[i,j] = 0}else{dat_[i,j] = dat_[i,j]}}} #std. data
-  dat_ = dat_[,-c(ncol(dat_)-2)]
+  if (any(names(dat_) == '')){dat_ = dat_[,-(which(names(dat_) == ''))]} else{dat_ = dat_}
+  if (any(names(dat_) == 'Trp Dbl')){dat_ = dat_[,-(which(names(dat_) == 'Trp Dbl'))]} else{dat_ = dat_}
   dat_ = dat_ %>% mutate(G = as.double(G),PTS = as.double(PTS),PF = as.double(PF),`FT%` = as.double(`FT%`),
                          FTA = as.double(FTA),FT = as.double(FT),`FG%` = as.double(`FG%`),FGA = as.double(FGA),FG = as.double(FG))
   dat_ = dat_ %>% mutate(TOV = if(is.null(dat_$TOV)){0} else{as.double(TOV)},BLK = if(is.null(dat_$BLK)){0} else{as.double(BLK)},
@@ -130,7 +134,6 @@ scrape_nbadf = function(htmlinput, user_player){
   } else{
     per100poss_dat = per100poss_dat %>% select(-Age, -Tm, -Lg, -Pos, -G, -GS)
   }
-  
   
   if (all(per100poss_dat[,ncol(per100poss_dat)] == totals_dat[,ncol(totals_dat)])){
     per100poss_dat = NULL
