@@ -43,6 +43,11 @@ tot_scrape = function(year){
   adv = adv %>% distinct(Player, .keep_all = T)
   return(adv)
 }
+g1 = read.csv('newdata/G1loadings.csv')[,-1]
+g2 = read.csv('newdata/G2loadings.csv')[,-1]
+g3 = read.csv('newdata/G3loadings.csv')[,-1]
+g4 = read.csv('newdata/G4loadings.csv')[,-1]
+
 for (i in 1952:2020){
   year = i
   adv = adv_scrape(year)
@@ -66,16 +71,23 @@ for (i in 1952:2020){
   for (i in 1:nrow(fdf)){for (j in 1:ncol(fdf)){if (is.nan(fdf[i,j])){fdf[i,j] = 0}}}
   eff = c(3, 4, 5, 11, 12, 17, 18);names(fdf)[eff]
   vol = c(6, 7, 8, 9, 10, 13, 14, 15, 16);names(fdf)[vol]
-  
-  R1 = cov(fdf[,eff]);lam1 = eigen(R1)$values;loa1 = abs(eigen(R1)$vectors);d1 = cbind.data.frame(names(fdf)[eff], loa1[,1]);names(d1) = c("stat", "loading")
-  R2 = cov(fdf[,vol]);lam2 = eigen(R2)$values;loa2 = abs(eigen(R2)$vectors);d2 = cbind.data.frame(names(fdf)[vol], loa2[,1]);names(d2) = c("stat", "loading")
-  loadings = rbind.data.frame(d1, d2) %>% cbind(year)
-  write.csv(loadings, paste0('newdata/', year, 'loadings.csv'))
-  
-  Eff = c();Vol = c()
+  if (fdf$Yr[1] < 1974){
+    loa1 = g1$loading[1:7]
+    loa2 = g1$loading[8:16]
+  } else if (fdf$Yr[1] < 1978){
+    loa1 = g2$loading[1:7]
+    loa2 = g2$loading[8:16]
+  } else if (fdf$Yr[1] < 1980){
+    loa1 = g3$loading[1:7]
+    loa2 = g3$loading[8:16]
+  } else{
+    loa1 = g4$loading[1:7]
+    loa2 = g4$loading[8:16]
+  }
+  Eff = c();Vol = c();EffStats = NULL;VolStats = NULL
   for (i in 1:nrow(fdf)){
-    Eff = c(Eff, t(abs(loa1[,1]))%*%t(as.matrix(fdf[i,eff])))
-    Vol = c(Vol, t(abs(loa2[,1]))%*%t(as.matrix(fdf[i,vol])))
+    Eff = c(Eff, t(abs(loa1))%*%t(as.matrix(fdf[i,eff])))
+    Vol = c(Vol, t(abs(loa2))%*%t(as.matrix(fdf[i,vol])))
   }
   fdf_ = cbind.data.frame(fdf, Eff, Vol)
   fdf_$Player = iconv(fdf_$Player, to="ASCII//TRANSLIT")
@@ -97,7 +109,9 @@ for (i in 1:nrow(fin)){
   }
 }
 write.csv(fin, 'finaldf.csv')
-
+fin %>% arrange(desc(Vol)) %>% select(Player, i, Vol, Eff) %>% filter(Eff > 1) %>% head(50) 
+fin %>% arrange(desc(Eff)) %>% select(Player, i, Eff, Vol) %>% filter(Vol > 1) %>% head(50)
+fin %>% mutate(Tot = Eff + Vol) %>% select(Player, i, Eff, Vol, Tot) %>% arrange(desc(Tot)) %>% head(50)
 
 
 

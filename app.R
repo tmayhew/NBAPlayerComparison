@@ -492,8 +492,8 @@ server <- function(input, output, session) {
     S2 = finaldf %>% filter(allstar == 0) %>% select(Eff, Vol) %>% cov()
     Sp = ((finaldf %>% filter(allstar == 1) %>% nrow() - 1)*S1 + (finaldf %>% filter(allstar == 0) %>% nrow() - 1)*S2)/(finaldf %>% filter(allstar == 0) %>% nrow() + finaldf %>% filter(allstar == 1) %>% nrow() - 2)
     w = solve(Sp)%*%(x1bar - x2bar)
-    limit1 = (0.50)*t(w)%*%(x1bar+x2bar) + 6.25
-    limit2 = (0.50)*t(w)%*%(x1bar+x2bar) + 1.085
+    limit1 = (0.50)*t(w)%*%(x1bar+x2bar) + 6.3979
+    limit2 = (0.50)*t(w)%*%(x1bar+x2bar) + 1.1425
     user_names = c(player1, player2)
     toplot = finaldf %>% filter(Player %in% user_names)
     for (i in 1:nrow(toplot)){
