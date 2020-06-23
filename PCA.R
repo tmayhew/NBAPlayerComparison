@@ -63,7 +63,6 @@ for (i in 1952:2020){
     df$Player[i] = paste(letters, collapse = "")
   } # taking away asterisks for HOF players
   lgAvg3P = sum(df$X3P)/sum(df$X3PA);lgAvg2P = sum(df$X2P)/sum(df$X2PA);lgAvgMP = sum(df$MP)/nrow(df);lgAvgG = max(df$G)
-  
   fdf = df %>% transmute(Player, Yr, x3PAVG = ((X3P. - lgAvg3P)*(X3PA)),x2PAVG = ((X2P. - lgAvg2P)*(X2PA)),xFTAVG = ((FT. - lgAvgFT)*(FTA)),PTS = PTS/G,TRB = TRB/G,AST = AST/G,STL = STL/G,BLK = BLK/G,ASTtTOV = TOV/G,SPBtPFR = (STL + BLK)/PF,PER = PER*(MP/(lgAvgMP))*(G/lgAvgG),WS = WS/G,OWS = OWS/G,DWS = DWS/G,TS = TS.,FTr = FTr)
   for (i in 1:nrow(fdf)){if (fdf$ASTtTOV[i] != 0){fdf$ASTtTOV[i] = (fdf$AST[i])/(fdf$ASTtTOV[i])} else{fdf$ASTtTOV[i] = 0}}
   for (i in 1:nrow(fdf)){if (is.infinite(fdf$SPBtPFR[i])){fdf$SPBtPFR[i] = 0} else{fdf$SPBtPFR[i] = fdf$SPBtPFR[i]}}
@@ -93,7 +92,15 @@ for (i in 1952:2020){
   fdf_$Player = iconv(fdf_$Player, to="ASCII//TRANSLIT")
   as.list <- read.csv(paste0('aslists/as', year, '.csv'))$Player
   for (i in 1:nrow(fdf_)){if (fdf_$Player[i] %in% as.list){fdf_$allstar[i] = 1} else{fdf_$allstar[i] = 0}}
-  finaldf = fdf_ %>% select(Player, Eff, Vol, allstar)
+  finaldf = fdf_ %>% select(Player, Eff, Vol, allstar, everything())
+  for (j in 6:ncol(finaldf)){
+    if (all(finaldf[,j] == 0)){
+      finaldf[,j] = finaldf[,j]
+    } else{
+      int = finaldf[,j] + abs(min(finaldf[,j]))
+      finaldf[,j] = 100*(int/max(int))
+    }
+  }
   write.csv(finaldf, paste0('newdata/', year, 'PC.csv'))
 }
 
@@ -113,6 +120,26 @@ fin %>% arrange(desc(Vol)) %>% select(Player, i, Vol, Eff) %>% filter(Eff > 1) %
 fin %>% arrange(desc(Eff)) %>% select(Player, i, Eff, Vol) %>% filter(Vol > 1) %>% head(50)
 fin %>% mutate(Tot = Eff + Vol) %>% select(Player, i, Eff, Vol, Tot) %>% arrange(desc(Tot)) %>% head(50)
 
+#finaldf = read.csv("finaldf.csv")[,-1]
+player = "Kevin Garnett"
+year = 2004
+yrdf = finaldf %>% filter(Player == player, Yr == year)
+sta = names(yrdf)[6:21]
+val = (yrdf)[6:21] %>% t()
+st = cbind.data.frame(sta, val)
+st = st %>% filter(sta != "SPBtPFR")
+for (i in 1:nrow(st)){if (st$val[i] >= 50){st$col[i] = "g"} else{st$col[i] = "r"}}
+for (i in 1:nrow(st)){if (st$sta[i] %in% c("x3PAVG", "x2PAVG", "xFTAVG", "ASTtTOV", "SPBtPFR", "TS", "FTr")){st$type[i] = "eff"} else{st$type[i] = "vol"}}
+st$sta[1] = "3P"
+st$sta[2] = "2P"
+st$sta[3] = "FT"
+st$sta[9] = "AST/TOV"
+st$sta[14] = "TS%"
+st = st %>% arrange(type, val)
+st$sta = factor(st$sta, levels = st$sta)
+st %>% ggplot(aes(x = sta, y = val)) + geom_hline(yintercept = 50, linetype = "dashed") + geom_bar(stat = "identity", width = I(1/2), alpha = I(3/4), aes(fill = as.factor(col)), color = "black") + coord_flip() + scale_y_continuous("Percentile") + scale_x_discrete("") + scale_fill_manual(values = c("#2eb82e", "#9B2335")) + theme_classic() + theme(legend.position = "none") + geom_vline(xintercept = 6.5) + geom_hline(yintercept = 102) +
+  annotate("text", x = 11.5, y = 106, label = "Volume", angle = 270) + 
+  annotate("text", x = 3.5, y = 106, label = "Efficiency", angle = 270)
 
 
 

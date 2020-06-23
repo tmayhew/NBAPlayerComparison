@@ -3,27 +3,14 @@ library(tidyverse)
 library(formattable)
 library(shiny)
 library(shinydashboard)
+library(DescTools)
 options(stringsAsFactors = F)
 
 cdf = read.csv("cdf.csv")[,-1]   # comes from NBAplayerLinks.R -- attaches a list of player names to corresponding basketball-reference links
 options = read.csv("options.csv")[,-1]  # comes from options.R -- simply a list of available statistics for the user to choose from
 abbr = data.frame(Abbreviation = c("/G", "/100P", options[c(1, 2, 21:63)]))
 tmhex = read.csv('newdata/teamabbreviations.csv')[,-1] # team hex colors
-desc = c("Per Game Statistic", "Per 100 Possessions Statistic", "Games", "Games Started", 
-         "Minutes Played", "Field Goals Made", "Field Goals Attempted",
-         "Field Goal Percentage", "3-Pointers Made", "3-Pointers Attempted", 
-         "3-Point Percentage","2-Pointers Made", "2-Pointers Attempted", 
-         "2-Point Percentage", "effective Field Goal Percentage", "Free Throws Made", 
-         "Free Throws Attempted", "Free Throw Percentage","Offensive Rebounds", 
-         "Defensive Rebounds", "Total Rebounds", "Assists", "Steals","Blocks", 
-         "Turnovers", "Personal Fouls", "Points", "Player Efficiency Rating", 
-         "True Shooting Percentage", "3-Point Attempt Rate", "Free Throw Rate", 
-         "Offensive Rebound Percentage", "Defensive Rebound Percentage", 
-         "Total Rebound Percentage","Assist Percentage", "Steal Percentage", 
-         "Block Percentage", "Turnover Percentage","Usage Percentage", 
-         "Offensive Win Shares", "Defensive Win Shares", "Win Shares", 
-         "Win Shares per 48 Minutes", "Offensive Box Plus-Minus", 
-         "Defensive Box Plus-Minus","Box Plus-Minus", "Value Over Replacement Player")
+desc = c("Per Game Statistic", "Per 100 Possessions Statistic", "Games", "Games Started", "Minutes Played", "Field Goals Made", "Field Goals Attempted","Field Goal Percentage", "3-Pointers Made", "3-Pointers Attempted", "3-Point Percentage","2-Pointers Made", "2-Pointers Attempted", "2-Point Percentage", "effective Field Goal Percentage", "Free Throws Made", "Free Throws Attempted", "Free Throw Percentage","Offensive Rebounds", "Defensive Rebounds", "Total Rebounds", "Assists", "Steals","Blocks", "Turnovers", "Personal Fouls", "Points", "Player Efficiency Rating", "True Shooting Percentage", "3-Point Attempt Rate", "Free Throw Rate", "Offensive Rebound Percentage", "Defensive Rebound Percentage", "Total Rebound Percentage","Assist Percentage", "Steal Percentage", "Block Percentage", "Turnover Percentage","Usage Percentage", "Offensive Win Shares", "Defensive Win Shares", "Win Shares", "Win Shares per 48 Minutes", "Offensive Box Plus-Minus", "Defensive Box Plus-Minus","Box Plus-Minus", "Value Over Replacement Player")
 statindex = cbind.data.frame(abbr, Description=desc) # a table of the statistic abbreviations and descriptions to display in app output
 finalasdf = read.csv("finaldf.csv")[,-1]
 
@@ -351,27 +338,44 @@ ui <- fluidPage(
                 selected = "WS"),
     plotOutput("prog"),
     titlePanel(h1("Seasons Comparison")),
-    plotOutput('seasonscomp')
+    plotOutput('seasonscomp'),
+    titlePanel(h1("Individual Season Search")),
+    div(style="display: inline-block;vertical-align:top",selectInput('indplayer', "Player:", c(levels(cdf$names)), selected = "Michael Jordan")),
+    div(style="display: inline-block;vertical-align:top; width: 150px",textInput('indyear', "Year:")),
+    plotOutput('indseason')
   )
 )
 
 server <- function(input, output, session) {
-  player1HTML <- reactive({
-    get_htmlnba(input$player1)
+  player1SC <- reactive({
+    scrape_nbadf(get_htmlnba(input$player1), input$player1)
   })
-  player2HTML <- reactive({
-    get_htmlnba(input$player2)
+  player1AC <- reactive({
+    scrape_accolades(get_htmlnba(input$player1), input$player1)
   })
+  player2SC <- reactive({
+    scrape_nbadf(get_htmlnba(input$player2), input$player2)
+  })
+  player2AC <- reactive({
+    scrape_accolades(get_htmlnba(input$player2), input$player2)
+  })
+
   primey <- reactive({
     input$pkyrs
   })
   stat <- reactive({
     input$statint
   })
+  selPlayer <- reactive({
+    input$indplayer
+  })
+  selYear <- reactive({
+    input$indyear
+  })
   
   output$accolades <- renderTable({
-    acc1 = scrape_accolades(player1HTML(), input$player1)
-    acc2 = scrape_accolades(player2HTML(), input$player2)
+    acc1 = player1AC()
+    acc2 = player2AC()
     accdf = rbind.data.frame(acc1, acc2)
     names(accdf) = c("Player", "All Star Selections", "All-NBA Selections","All-Defensive Team Selections", "6th Man of the Year Awards", "Scoring Titles","Most Valuable Player Awards", "Finals Most Valuable Player Awards",  "Championships", "Rookie Of the Year", "All-Rookie Team", "Hall of Fame Induction")
     accdf = t(accdf)
@@ -379,11 +383,10 @@ server <- function(input, output, session) {
     accdf = accdf[-1,]
     greater_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x > mean(x), "bold", NA)))
     formattable(as.data.frame(accdf))
-  },
-  rownames = T)
+  },rownames = T)
   output$comparison <- renderPlot({
-    player1d = scrape_nbadf(player1HTML(), input$player1)
-    player2d = scrape_nbadf(player2HTML(), input$player2)
+    player1d = player1SC()
+    player2d = player2SC()
     commonvars = intersect(names(player1d), names(player2d))
     bind1 = player1d[,commonvars]
     bind2 = player2d[,commonvars]
@@ -438,8 +441,8 @@ server <- function(input, output, session) {
     num = primey()
     s = strsplit(num, "")[[1]]
     num = as.numeric(paste(s[grepl("[0-9]", s)], collapse = ""))
-    player1d = scrape_nbadf(player1HTML(), input$player1) %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
-    player2d = scrape_nbadf(player2HTML(), input$player2) %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
+    player1d = player1SC() %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
+    player2d = player2SC() %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
     table = primedf(player1d, player2d, i = num)
     greater_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x > mean(x), "bold", NA)))
     if (input$player1 == input$player2){table = table[1,]}
@@ -447,8 +450,8 @@ server <- function(input, output, session) {
   })
   output$prog <- renderPlot({
     sel = stat()
-    player1d = scrape_nbadf(player1HTML(), input$player1)
-    player2d = scrape_nbadf(player2HTML(), input$player2)
+    player1d = player1SC()
+    player2d = player2SC()
     commonvars = intersect(names(player1d), names(player2d))
     bind1 = player1d[,commonvars]
     bind2 = player2d[,commonvars]
@@ -483,14 +486,8 @@ server <- function(input, output, session) {
     player1 = input$player1
     player2 = input$player2
     finaldf = finalasdf
-    x1bar = finaldf %>% filter(allstar == 1) %>% summarise(
-      x1 = mean(Eff),
-      x2 = mean(Vol)
-    ) %>% as.matrix() %>% t()
-    x2bar = finaldf %>% filter(allstar == 0) %>% summarise(
-      x1 = mean(Eff),
-      x2 = mean(Vol)
-    ) %>% as.matrix() %>% t()
+    x1bar = finaldf %>% filter(allstar == 1) %>% summarise(x1 = mean(Eff),x2 = mean(Vol)) %>% as.matrix() %>% t()
+    x2bar = finaldf %>% filter(allstar == 0) %>% summarise(x1 = mean(Eff),x2 = mean(Vol)) %>% as.matrix() %>% t()
     S1 = finaldf %>% filter(allstar == 1) %>% select(Eff, Vol) %>% cov()
     S2 = finaldf %>% filter(allstar == 0) %>% select(Eff, Vol) %>% cov()
     Sp = ((finaldf %>% filter(allstar == 1) %>% nrow() - 1)*S1 + (finaldf %>% filter(allstar == 0) %>% nrow() - 1)*S2)/(finaldf %>% filter(allstar == 0) %>% nrow() + finaldf %>% filter(allstar == 1) %>% nrow() - 2)
@@ -504,32 +501,64 @@ server <- function(input, output, session) {
       l2 = paste(sp[3:4], collapse = "")
       toplot$Yr[i] = paste0("'",l2)
     }
-    player1d = scrape_nbadf(player1HTML(), input$player1)
+    player1d = player1SC()
     p1ord = player1d %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
     team = p1ord %>% select(Tm) %>% head(5) %>% group_by(Tm) %>% summarize(n = n(),.groups = 'drop') %>% arrange(desc(n))
     playerTeam = ifelse(team$n[1] > 0.50*(min(nrow(player1d), 5)), team$Tm[1], "None")
     if (playerTeam %in% tmhex$abb){color = tmhex$hex[grep(playerTeam, tmhex$abb)]} else{color = "black"}
     
-    if (input$player1 != input$player2){
-      toplot$Player = factor(toplot$Player, levels = c(player1, player2))
-    } else{
-      toplot$Player = toplot$Player
-    }
+    if (input$player1 != input$player2){toplot$Player = factor(toplot$Player, levels = c(player1, player2))} else{toplot$Player = toplot$Player}
     
     toplot %>% 
       ggplot(aes(x = Eff, y = Vol, color = Player)) + 
       geom_hline(yintercept = 0, linetype = "dashed", alpha = I(.55)) + 
       geom_vline(xintercept = 0, linetype = "dashed", alpha = I(.55)) + 
       scale_x_continuous("Efficiency Principal Component") + scale_y_continuous("Volume Principal Component") + theme_classic() + 
-      scale_color_manual(values = c(color, "grey70")) + 
+      scale_color_manual("",values = c(color, "grey70")) + 
       geom_abline(slope = (-w[1,1]/w[2,1]), intercept = 
                     (limit1/w[2,1]), linetype = "dashed", color = "#d29914") +
       geom_abline(slope = (-w[1,1]/w[2,1]), intercept = 
                     (limit2/w[2,1]), linetype = "dashed", color = "#d29914") +  geom_point(size = I(7.5)) +
       geom_text(aes(label = Yr), color = "white") +
       theme(legend.position = c(0.10, .90))
-    
-  }, height = 570)
+  })
+  output$indseason <- renderPlot({
+    player = selPlayer()
+    year = selYear()
+    yrdf = finaldf %>% filter(Player == player, Yr == year)
+    if ((dim(yrdf)[1]) == 0){
+      ggplot() + ggtitle("Select a Player and then input a Year in which that player was active.") + theme_minimal()
+    } else{
+      sta = names(yrdf)[6:21]
+      val = (yrdf)[6:21] %>% t()
+      st = cbind.data.frame(sta, val)
+      st = st %>% filter(sta != "SPBtPFR")
+      for (i in 1:nrow(st)){
+        if (st$val[i] == 100){
+          st$col[i] = "z"
+        } else if (st$val[i] >= 50){
+          st$col[i] = "y"
+        } else{
+          st$col[i] = "r"
+        }
+      }
+      
+      for (i in 1:nrow(st)){if (st$sta[i] %in% c("x3PAVG", "x2PAVG", "xFTAVG", "ASTtTOV", "SPBtPFR", "TS", "FTr")){st$type[i] = "eff"} else{st$type[i] = "vol"}}
+      st$sta[1] = "3P Add"
+      st$sta[2] = "2P Add"
+      st$sta[3] = "FT Add"
+      st$sta[9] = "AST/TOV"
+      st$sta[14] = "TS%"
+      st = st %>% arrange(type, val)
+      st$sta = factor(st$sta, levels = st$sta)
+      
+      p = st %>% ggplot(aes(x = sta, y = val)) + geom_hline(yintercept = 50, linetype = "dashed") + geom_bar(stat = "identity", width = I(1/2), alpha = I(3/4), aes(fill = as.factor(col)), color = "black") + coord_flip() + scale_y_continuous("Percentile") + scale_x_discrete("") + scale_fill_manual(values = c("#9B2335",MixColor("white", "#ff9900", 0.5),"#ff9900")) + theme_classic() + theme(legend.position = "none", panel.background = element_rect(fill = "grey95")) + geom_vline(xintercept = 6.5) + geom_hline(yintercept = 102) +
+        annotate("text", x = 11.5, y = 106, label = "Volume", angle = 270) + #MixColor("white", "#9B2335", .8)
+        annotate("text", x = 3.5, y = 106, label = "Efficiency", angle = 270)
+      p
+      
+      }
+  })
 }
 
 shinyApp(ui, server)

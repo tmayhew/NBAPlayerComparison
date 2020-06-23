@@ -1,3 +1,5 @@
 library(tidyverse)
-d = read.csv('finaldf.csv')[,-1]
-d %>% filter(Player == "Manu Ginobili")
+# percentiles
+for (j in 6:ncol(finaldf)){
+  finaldf[,j] = 100*((finaldf[,j] + abs(min(finaldf[,j])))/max(finaldf[,j]))
+}
