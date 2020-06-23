@@ -527,7 +527,7 @@ server <- function(input, output, session) {
     year = selYear()
     yrdf = finaldf %>% filter(Player == player, Yr == year)
     if ((dim(yrdf)[1]) == 0){
-      ggplot() + ggtitle("Select a Player and then input a Year in which that player was active.") + theme_minimal()
+      ggplot() + ggtitle("Select a Player and then input a Year in which that player was active (since 1952).") + theme_minimal()
     } else{
       sta = names(yrdf)[6:21]
       val = (yrdf)[6:21] %>% t()
@@ -535,13 +535,14 @@ server <- function(input, output, session) {
       st = st %>% filter(sta != "SPBtPFR")
       for (i in 1:nrow(st)){
         if (st$val[i] == 100){
-          st$col[i] = "z"
+          st$col[i] = "League-Leading"
         } else if (st$val[i] >= 50){
-          st$col[i] = "y"
+          st$col[i] = "Above Average"
         } else{
-          st$col[i] = "r"
+          st$col[i] = "Below Average"
         }
       }
+      st$col = factor(st$col, levels = c("Below Average", "Above Average", "League-Leading"))
       
       for (i in 1:nrow(st)){if (st$sta[i] %in% c("x3PAVG", "x2PAVG", "xFTAVG", "ASTtTOV", "SPBtPFR", "TS", "FTr")){st$type[i] = "eff"} else{st$type[i] = "vol"}}
       st$sta[1] = "3P Add"
@@ -552,7 +553,7 @@ server <- function(input, output, session) {
       st = st %>% arrange(type, val)
       st$sta = factor(st$sta, levels = st$sta)
       
-      p = st %>% ggplot(aes(x = sta, y = val)) + geom_hline(yintercept = 50, linetype = "dashed") + geom_bar(stat = "identity", width = I(1/2), alpha = I(3/4), aes(fill = as.factor(col)), color = "black") + coord_flip() + scale_y_continuous("Percentile") + scale_x_discrete("") + scale_fill_manual(values = c("#9B2335",MixColor("white", "#ff9900", 0.5),"#ff9900")) + theme_classic() + theme(legend.position = "none", panel.background = element_rect(fill = "grey95")) + geom_vline(xintercept = 6.5) + geom_hline(yintercept = 102) +
+      p = st %>% ggplot(aes(x = sta, y = val)) + geom_hline(yintercept = 50, linetype = "dashed") + geom_bar(stat = "identity", width = I(1/2), alpha = I(3/4), aes(fill = as.factor(col)), color = "black") + coord_flip() + scale_y_continuous("Percentile") + scale_x_discrete("") + scale_fill_manual("",values = c("#9B2335",MixColor("white", "#ff9900", 0.5),"#ff9900")) + theme_classic() + theme(legend.position = "top", panel.background = element_rect(fill = "grey95")) + geom_vline(xintercept = 6.5) + geom_hline(yintercept = 102) +
         annotate("text", x = 11.5, y = 106, label = "Volume", angle = 270) + #MixColor("white", "#9B2335", .8)
         annotate("text", x = 3.5, y = 106, label = "Efficiency", angle = 270)
       p
