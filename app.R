@@ -8,9 +8,9 @@ options(stringsAsFactors = F)
 
 cdf = read.csv("cdf.csv")[,-1]   # comes from NBAplayerLinks.R -- attaches a list of player names to corresponding basketball-reference links
 options = read.csv("options.csv")[,-1]  # comes from options.R -- simply a list of available statistics for the user to choose from
-abbr = data.frame(Abbreviation = c("/G", "/100P", options[c(1, 2, 21:63)]))
+abbr = data.frame(Abbreviation = c("/G", "/100P", options[c(1, 2, 21:63)], "ADD"))
 tmhex = read.csv('newdata/teamabbreviations.csv')[,-1] # team hex colors
-desc = c("Per Game Statistic", "Per 100 Possessions Statistic", "Games", "Games Started", "Minutes Played", "Field Goals Made", "Field Goals Attempted","Field Goal Percentage", "3-Pointers Made", "3-Pointers Attempted", "3-Point Percentage","2-Pointers Made", "2-Pointers Attempted", "2-Point Percentage", "effective Field Goal Percentage", "Free Throws Made", "Free Throws Attempted", "Free Throw Percentage","Offensive Rebounds", "Defensive Rebounds", "Total Rebounds", "Assists", "Steals","Blocks", "Turnovers", "Personal Fouls", "Points", "Player Efficiency Rating", "True Shooting Percentage", "3-Point Attempt Rate", "Free Throw Rate", "Offensive Rebound Percentage", "Defensive Rebound Percentage", "Total Rebound Percentage","Assist Percentage", "Steal Percentage", "Block Percentage", "Turnover Percentage","Usage Percentage", "Offensive Win Shares", "Defensive Win Shares", "Win Shares", "Win Shares per 48 Minutes", "Offensive Box Plus-Minus", "Defensive Box Plus-Minus","Box Plus-Minus", "Value Over Replacement Player")
+desc = c("Per Game Statistic", "Per 100 Possessions Statistic", "Games", "Games Started", "Minutes Played", "Field Goals Made", "Field Goals Attempted","Field Goal Percentage", "3-Pointers Made", "3-Pointers Attempted", "3-Point Percentage","2-Pointers Made", "2-Pointers Attempted", "2-Point Percentage", "effective Field Goal Percentage", "Free Throws Made", "Free Throws Attempted", "Free Throw Percentage","Offensive Rebounds", "Defensive Rebounds", "Total Rebounds", "Assists", "Steals","Blocks", "Turnovers", "Personal Fouls", "Points", "Player Efficiency Rating", "True Shooting Percentage", "3-Point Attempt Rate", "Free Throw Rate", "Offensive Rebound Percentage", "Defensive Rebound Percentage", "Total Rebound Percentage","Assist Percentage", "Steal Percentage", "Block Percentage", "Turnover Percentage","Usage Percentage", "Offensive Win Shares", "Defensive Win Shares", "Win Shares", "Win Shares per 48 Minutes", "Offensive Box Plus-Minus", "Defensive Box Plus-Minus","Box Plus-Minus", "Value Over Replacement Player", "Shooting Accuracy Above/Below League Average times Shot Attempts")
 statindex = cbind.data.frame(abbr, Description=desc) # a table of the statistic abbreviations and descriptions to display in app output
 finalasdf = read.csv("finaldf.csv")[,-1]
 
@@ -525,7 +525,7 @@ server <- function(input, output, session) {
   output$indseason <- renderPlot({
     player = selPlayer()
     year = selYear()
-    yrdf = finaldf %>% filter(Player == player, Yr == year)
+    yrdf = finalasdf %>% filter(Player == player, Yr == year)
     if ((dim(yrdf)[1]) == 0){
       ggplot() + ggtitle("Select a Player and then input a Year in which that player was active (since 1952).") + theme_minimal()
     } else{
@@ -545,15 +545,21 @@ server <- function(input, output, session) {
       st$col = factor(st$col, levels = c("Below Average", "Above Average", "League-Leading"))
       
       for (i in 1:nrow(st)){if (st$sta[i] %in% c("x3PAVG", "x2PAVG", "xFTAVG", "ASTtTOV", "SPBtPFR", "TS", "FTr")){st$type[i] = "eff"} else{st$type[i] = "vol"}}
-      st$sta[1] = "3P Add"
-      st$sta[2] = "2P Add"
-      st$sta[3] = "FT Add"
+      st$sta[1] = "3P ADD"
+      st$sta[2] = "2P ADD"
+      st$sta[3] = "FT ADD"
       st$sta[9] = "AST/TOV"
       st$sta[14] = "TS%"
       st = st %>% arrange(type, val)
       st$sta = factor(st$sta, levels = st$sta)
       
-      p = st %>% ggplot(aes(x = sta, y = val)) + geom_hline(yintercept = 50, linetype = "dashed") + geom_bar(stat = "identity", width = I(1/2), alpha = I(3/4), aes(fill = as.factor(col)), color = "black") + coord_flip() + scale_y_continuous("Percentile") + scale_x_discrete("") + scale_fill_manual("",values = c("#9B2335",MixColor("white", "#ff9900", 0.5),"#ff9900")) + theme_classic() + theme(legend.position = "top", panel.background = element_rect(fill = "grey95")) + geom_vline(xintercept = 6.5) + geom_hline(yintercept = 102) +
+      if (all(st$col %in% c("Above Average", "League-Leading"))){
+        colors = c(MixColor("white", "#ff9900", 0.5), "#ff9900")
+      } else{
+        colors = c("#9B2335",MixColor("white", "#ff9900", 0.5),"#ff9900")
+      }
+      
+      p = st %>% ggplot(aes(x = sta, y = val)) + geom_hline(yintercept = 50, linetype = "dashed") + geom_bar(stat = "identity", width = I(1/2), alpha = I(3/4), aes(fill = as.factor(col)), color = "black") + coord_flip() + scale_y_continuous("Mean of Percentile Rank and Percent of League-Best Value") + scale_x_discrete("") + scale_fill_manual("",values = colors) + theme_classic() + theme(legend.position = "top", panel.background = element_rect(fill = "grey95")) + geom_vline(xintercept = 6.5) + geom_hline(yintercept = 102) +
         annotate("text", x = 11.5, y = 106, label = "Volume", angle = 270) + #MixColor("white", "#9B2335", .8)
         annotate("text", x = 3.5, y = 106, label = "Efficiency", angle = 270)
       p

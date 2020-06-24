@@ -97,8 +97,14 @@ for (i in 1952:2020){
     if (all(finaldf[,j] == 0)){
       finaldf[,j] = finaldf[,j]
     } else{
-      int = finaldf[,j] + abs(min(finaldf[,j]))
-      finaldf[,j] = 100*(int/max(int))
+      int = finaldf[,j]
+      d = data.frame(finaldf[,1],int, orig = 1:length(int))
+      d = d %>% arrange(desc(int))
+      d = d %>% data.frame(perc = 100*(length(int):1/length(int)))
+      d = d %>% arrange((orig))
+      int1 = d$perc
+      int2 = int + abs(min(finaldf[,j]))
+      finaldf[,j] = ((100*(int2/max(int2)))+int1)/2
     }
   }
   write.csv(finaldf, paste0('newdata/', year, 'PC.csv'))
