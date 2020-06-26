@@ -112,42 +112,62 @@ for (i in 1952:2020){
 
 # Bind all PC dataframes into one dataset
 fin = NULL
-for (i in 1952:2020){
-  fin = rbind.data.frame(fin, cbind.data.frame(read.csv(paste0('newdata/', i, 'PC.csv'))[,-1], i))
-}
+for (i in 1952:2020){fin = rbind.data.frame(fin, cbind.data.frame(read.csv(paste0('newdata/', i, 'PC.csv'))[,-1], i))}
 fin = fin %>% drop_na()
 for (i in 1:nrow(fin)){
   if (fin$Player[i] == "Nene"){
     fin$Player[i] = "Nene Hilario"
   }
+  if (fin$Player[i] == "Gheorghe Mure<U+0219>an"){
+    fin$Player[i] = "Gheorghe Muresan"
+  }
+  if (fin$Player[i] == "Horacio Llamas"){
+    fin$Player[i] = "Horacio Llamas Grey"
+  }
+  if (fin$Player[i] == "Kiwane Lemorris Garris"){
+    fin$Player[i] = "Kiwane Garris"
+  }
+  if (fin$Player[i] == "Mark Baker"){
+    fin$Player[i] = "LaMark Baker"
+  }
+  if (fin$Player[i] == "Efthimis Rentzias"){
+    fin$Player[i] = "Efthimi Rentzias"
+  }
+  if (fin$Player[i] == "Gigi Datome"){
+    fin$Player[i] = "Luigi Datome"
+  }
+  if (fin$Player[i] == "Mo Bamba"){
+    fin$Player[i] = "Mohamed Bamba"
+  }
+  if (fin$Player[i] == "Taurean Prince"){
+    fin$Player[i] = "Taurean Waller-Prince"
+  }
 }
+mismatch = unique(fin$Player[(fin$Player %in% cdf$names) == F])
+fin$issue = ifelse(fin$Player %in% mismatch, 1, 0)
+for (i in 1:nrow(fin)){
+  if (fin$issue[i] == 0){
+    fin$issue[i] = 0
+  } else{
+    sp = strsplit(fin$Player[i], "")[[1]]
+    sh = paste(sp[1:(length(sp)-4)], collapse = "")
+    if (sh %in% cdf$names){
+      fin$Player[i] = sh
+      fin$issue[i] = 0
+    } else{
+      sh = paste(sp[1:(length(sp)-3)], collapse = "")
+      if (sh %in% cdf$names){
+        fin$Player[i] = sh
+        fin$issue[i] = 0
+      } else{
+        fin$issue[i] = 1
+      }
+    }
+  }
+}
+
+paste("Number of issues =", sum(fin$issue))
 write.csv(fin, 'finaldf.csv')
-fin %>% arrange(desc(Vol)) %>% select(Player, i, Vol, Eff) %>% filter(Eff > 1) %>% head(50) 
-fin %>% arrange(desc(Eff)) %>% select(Player, i, Eff, Vol) %>% filter(Vol > 1) %>% head(50)
-fin %>% mutate(Tot = Eff + Vol) %>% select(Player, i, Eff, Vol, Tot) %>% arrange(desc(Tot)) %>% head(50)
-
-#finaldf = read.csv("finaldf.csv")[,-1]
-player = "Kevin Garnett"
-year = 2004
-yrdf = finaldf %>% filter(Player == player, Yr == year)
-sta = names(yrdf)[6:21]
-val = (yrdf)[6:21] %>% t()
-st = cbind.data.frame(sta, val)
-st = st %>% filter(sta != "SPBtPFR")
-for (i in 1:nrow(st)){if (st$val[i] >= 50){st$col[i] = "g"} else{st$col[i] = "r"}}
-for (i in 1:nrow(st)){if (st$sta[i] %in% c("x3PAVG", "x2PAVG", "xFTAVG", "ASTtTOV", "SPBtPFR", "TS", "FTr")){st$type[i] = "eff"} else{st$type[i] = "vol"}}
-st$sta[1] = "3P"
-st$sta[2] = "2P"
-st$sta[3] = "FT"
-st$sta[9] = "AST/TOV"
-st$sta[14] = "TS%"
-st = st %>% arrange(type, val)
-st$sta = factor(st$sta, levels = st$sta)
-st %>% ggplot(aes(x = sta, y = val)) + geom_hline(yintercept = 50, linetype = "dashed") + geom_bar(stat = "identity", width = I(1/2), alpha = I(3/4), aes(fill = as.factor(col)), color = "black") + coord_flip() + scale_y_continuous("Percentile") + scale_x_discrete("") + scale_fill_manual(values = c("#2eb82e", "#9B2335")) + theme_classic() + theme(legend.position = "none") + geom_vline(xintercept = 6.5) + geom_hline(yintercept = 102) +
-  annotate("text", x = 11.5, y = 106, label = "Volume", angle = 270) + 
-  annotate("text", x = 3.5, y = 106, label = "Efficiency", angle = 270)
-
-
 
 
 

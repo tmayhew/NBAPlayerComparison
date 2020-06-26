@@ -10,11 +10,11 @@ cdf = read.csv("cdf.csv")[,-1]   # comes from NBAplayerLinks.R -- attaches a lis
 options = read.csv("options.csv")[,-1]  # comes from options.R -- simply a list of available statistics for the user to choose from
 abbr = data.frame(Abbreviation = c("/G", "/100P", options[c(1, 2, 21:63)], "ADD"))
 tmhex = read.csv('newdata/teamabbreviations.csv')[,-1] # team hex colors
-desc = c("Per Game Statistic", "Per 100 Possessions Statistic", "Games", "Games Started", "Minutes Played", "Field Goals Made", "Field Goals Attempted","Field Goal Percentage", "3-Pointers Made", "3-Pointers Attempted", "3-Point Percentage","2-Pointers Made", "2-Pointers Attempted", "2-Point Percentage", "effective Field Goal Percentage", "Free Throws Made", "Free Throws Attempted", "Free Throw Percentage","Offensive Rebounds", "Defensive Rebounds", "Total Rebounds", "Assists", "Steals","Blocks", "Turnovers", "Personal Fouls", "Points", "Player Efficiency Rating", "True Shooting Percentage", "3-Point Attempt Rate", "Free Throw Rate", "Offensive Rebound Percentage", "Defensive Rebound Percentage", "Total Rebound Percentage","Assist Percentage", "Steal Percentage", "Block Percentage", "Turnover Percentage","Usage Percentage", "Offensive Win Shares", "Defensive Win Shares", "Win Shares", "Win Shares per 48 Minutes", "Offensive Box Plus-Minus", "Defensive Box Plus-Minus","Box Plus-Minus", "Value Over Replacement Player", "Shooting Accuracy Above/Below League Average times Shot Attempts")
+desc = c("Per Game Statistic", "Per 100 Possessions Statistic", "Games", "Games Started", "Minutes Played", "Field Goals Made", "Field Goals Attempted","Field Goal Percentage", "3-Pointers Made", "3-Pointers Attempted", "3-Point Percentage","2-Pointers Made", "2-Pointers Attempted", "2-Point Percentage", "effective Field Goal Percentage", "Free Throws Made", "Free Throws Attempted", "Free Throw Percentage","Offensive Rebounds", "Defensive Rebounds", "Total Rebounds", "Assists", "Steals","Blocks", "Turnovers", "Personal Fouls", "Points", "Player Efficiency Rating", "True Shooting Percentage", "3-Point Attempt Rate", "Free Throw Rate", "Offensive Rebound Percentage", "Defensive Rebound Percentage", "Total Rebound Percentage","Assist Percentage", "Steal Percentage", "Block Percentage", "Turnover Percentage","Usage Percentage", "Offensive Win Shares", "Defensive Win Shares", "Win Shares", "Win Shares per 48 Minutes", "Offensive Box Plus-Minus", "Defensive Box Plus-Minus","Box Plus-Minus", "Value Over Replacement Player", "Shooting Percentage Above/Below League Average times Shot Attempts")
 statindex = cbind.data.frame(abbr, Description=desc) # a table of the statistic abbreviations and descriptions to display in app output
-finalasdf = read.csv("finaldf.csv")[,-1]
-
+finaldf = read.csv("finaldf.csv")[,-1]
 cdf$names = as.factor(cdf$names)
+
 get_htmlnba = function(playerName){
   user_player = playerName
   user_df = cdf %>% filter(names == user_player) %>% select(actual_link)
@@ -318,9 +318,9 @@ primedf = function(player1d, player2d, i = 1){
 ui <- fluidPage(
   headerPanel("NBA Player Comparison"),
   sidebarPanel(
-    selectInput('player1', "Player 1", c(levels(cdf$names)),
+    selectInput('player1', "Player 1", c(levels(as.factor(finaldf$Player))),
                 selected = "Michael Jordan"),
-    selectInput('player2', "Player 2", c(levels(cdf$names)),
+    selectInput('player2', "Player 2", c(levels(as.factor(finaldf$Player))),
                 selected = "LeBron James"),
     titlePanel("Career Accolades"),
     tableOutput("accolades"),
@@ -339,8 +339,9 @@ ui <- fluidPage(
     plotOutput("prog"),
     titlePanel(h1("Seasons Comparison")),
     plotOutput('seasonscomp'),
+    br(),br(),br(),br(),br(),br(),
     titlePanel(h1("Individual Season Search")),
-    div(style="display: inline-block;vertical-align:top",selectInput('indplayer', "Player:", c(levels(cdf$names)), selected = "Michael Jordan")),
+    div(style="display: inline-block;vertical-align:top",selectInput('indplayer', "Player:", c(levels(as.factor(finaldf$Player))), selected = "Michael Jordan")),
     div(style="display: inline-block;vertical-align:top; width: 150px",textInput('indyear', "Year:")),
     plotOutput('indseason')
   )
@@ -482,50 +483,10 @@ server <- function(input, output, session) {
   output$statindex <- renderTable({
     statindex
   })
-  output$seasonscomp <- renderPlot({
-    player1 = input$player1
-    player2 = input$player2
-    finaldf = finalasdf
-    x1bar = finaldf %>% filter(allstar == 1) %>% summarise(x1 = mean(Eff),x2 = mean(Vol)) %>% as.matrix() %>% t()
-    x2bar = finaldf %>% filter(allstar == 0) %>% summarise(x1 = mean(Eff),x2 = mean(Vol)) %>% as.matrix() %>% t()
-    S1 = finaldf %>% filter(allstar == 1) %>% select(Eff, Vol) %>% cov()
-    S2 = finaldf %>% filter(allstar == 0) %>% select(Eff, Vol) %>% cov()
-    Sp = ((finaldf %>% filter(allstar == 1) %>% nrow() - 1)*S1 + (finaldf %>% filter(allstar == 0) %>% nrow() - 1)*S2)/(finaldf %>% filter(allstar == 0) %>% nrow() + finaldf %>% filter(allstar == 1) %>% nrow() - 2)
-    w = solve(Sp)%*%(x1bar - x2bar)
-    limit1 = (0.50)*t(w)%*%(x1bar+x2bar) + 6.3979
-    limit2 = (0.50)*t(w)%*%(x1bar+x2bar) + 1.1425
-    user_names = c(player1, player2)
-    toplot = finaldf %>% filter(Player %in% user_names)
-    for (i in 1:nrow(toplot)){
-      sp = strsplit(as.character(toplot$i[i]),"")[[1]]
-      l2 = paste(sp[3:4], collapse = "")
-      toplot$Yr[i] = paste0("'",l2)
-    }
-    player1d = player1SC()
-    p1ord = player1d %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
-    team = p1ord %>% select(Tm) %>% head(5) %>% group_by(Tm) %>% summarize(n = n(),.groups = 'drop') %>% arrange(desc(n))
-    playerTeam = ifelse(team$n[1] > 0.50*(min(nrow(player1d), 5)), team$Tm[1], "None")
-    if (playerTeam %in% tmhex$abb){color = tmhex$hex[grep(playerTeam, tmhex$abb)]} else{color = "black"}
-    
-    if (input$player1 != input$player2){toplot$Player = factor(toplot$Player, levels = c(player1, player2))} else{toplot$Player = toplot$Player}
-    
-    toplot %>% 
-      ggplot(aes(x = Eff, y = Vol, color = Player)) + 
-      geom_hline(yintercept = 0, linetype = "dashed", alpha = I(.55)) + 
-      geom_vline(xintercept = 0, linetype = "dashed", alpha = I(.55)) + 
-      scale_x_continuous("Efficiency Principal Component") + scale_y_continuous("Volume Principal Component") + theme_classic() + 
-      scale_color_manual("",values = c(color, "grey70")) + 
-      geom_abline(slope = (-w[1,1]/w[2,1]), intercept = 
-                    (limit1/w[2,1]), linetype = "dashed", color = "#d29914") +
-      geom_abline(slope = (-w[1,1]/w[2,1]), intercept = 
-                    (limit2/w[2,1]), linetype = "dashed", color = "#d29914") +  geom_point(size = I(7.5)) +
-      geom_text(aes(label = Yr), color = "white") +
-      theme(legend.position = c(0.10, .90))
-  })
   output$indseason <- renderPlot({
     player = selPlayer()
     year = selYear()
-    yrdf = finalasdf %>% filter(Player == player, Yr == year)
+    yrdf = finaldf %>% filter(Player == player, Yr == year)
     if ((dim(yrdf)[1]) == 0){
       ggplot() + ggtitle("Select a Player and then input a Year in which that player was active (since 1952).") + theme_minimal()
     } else{
@@ -564,8 +525,48 @@ server <- function(input, output, session) {
         annotate("text", x = 3.5, y = 106, label = "Efficiency", angle = 270)
       p
       
-      }
+    }
   })
+  output$seasonscomp <- renderPlot({
+    player1 = input$player1
+    player2 = input$player2
+    
+    x1bar = finaldf %>% filter(allstar == 1) %>% summarise(x1 = mean(Eff),x2 = mean(Vol)) %>% as.matrix() %>% t()
+    x2bar = finaldf %>% filter(allstar == 0) %>% summarise(x1 = mean(Eff),x2 = mean(Vol)) %>% as.matrix() %>% t()
+    S1 = finaldf %>% filter(allstar == 1) %>% select(Eff, Vol) %>% cov()
+    S2 = finaldf %>% filter(allstar == 0) %>% select(Eff, Vol) %>% cov()
+    Sp = ((finaldf %>% filter(allstar == 1) %>% nrow() - 1)*S1 + (finaldf %>% filter(allstar == 0) %>% nrow() - 1)*S2)/(finaldf %>% filter(allstar == 0) %>% nrow() + finaldf %>% filter(allstar == 1) %>% nrow() - 2)
+    w = solve(Sp)%*%(x1bar - x2bar)
+    limit1 = (0.50)*t(w)%*%(x1bar+x2bar) + 6.3979
+    limit2 = (0.50)*t(w)%*%(x1bar+x2bar) + 1.1425
+    user_names = c(player1, player2)
+    toplot = finaldf %>% filter(Player %in% user_names)
+    for (i in 1:nrow(toplot)){
+      sp = strsplit(as.character(toplot$i[i]),"")[[1]]
+      l2 = paste(sp[3:4], collapse = "")
+      toplot$Yr[i] = paste0("'",l2)
+    }
+    player1d = player1SC()
+    p1ord = player1d %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
+    team = p1ord %>% select(Tm) %>% head(5) %>% group_by(Tm) %>% summarize(n = n(),.groups = 'drop') %>% arrange(desc(n))
+    playerTeam = ifelse(team$n[1] > 0.50*(min(nrow(player1d), 5)), team$Tm[1], "None")
+    if (playerTeam %in% tmhex$abb){color = tmhex$hex[grep(playerTeam, tmhex$abb)]} else{color = "black"}
+    
+    if (input$player1 != input$player2){toplot$Player = factor(toplot$Player, levels = c(player1, player2))} else{toplot$Player = toplot$Player}
+    
+    toplot %>% 
+      ggplot(aes(x = Eff, y = Vol, color = Player)) + 
+      geom_hline(yintercept = 0, linetype = "dashed", alpha = I(.55)) + 
+      geom_vline(xintercept = 0, linetype = "dashed", alpha = I(.55)) + 
+      scale_x_continuous("Efficiency Principal Component") + scale_y_continuous("Volume Principal Component") + theme_classic() + 
+      scale_color_manual("",values = c(color, "grey70")) + 
+      geom_abline(slope = (-w[1,1]/w[2,1]), intercept = 
+                    (limit1/w[2,1]), linetype = "dashed", color = "#d29914") +
+      geom_abline(slope = (-w[1,1]/w[2,1]), intercept = 
+                    (limit2/w[2,1]), linetype = "dashed", color = "#d29914") +  geom_point(size = I(7.5)) +
+      geom_text(aes(label = Yr), color = "white") +
+      theme(legend.position = "top") # c(0.10, .90))
+  }, height = 525)
 }
 
 shinyApp(ui, server)
