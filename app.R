@@ -15,7 +15,66 @@ finaldf = read.csv("finaldf.csv")[,-1]
 cdf$names = as.factor(cdf$names)
 opch = read.csv('lboptions.csv')[,-1]
 
-
+gatherseasons <- function(svector){
+  if (any(is.na(svector))){
+    log = "NA"
+  } else{
+    svector = data.frame(svector)
+    season = c()
+    for (i in 1:nrow(svector)){
+      sp = strsplit(svector$svector[i], "")[[1]]
+      if (all(sp[6:7] == c("0", "0"))){
+        ft = as.character(as.numeric(paste(sp[1:2],collapse="")) + 1)
+      } else{
+        ft = as.character(as.numeric(paste(sp[1:2],collapse="")))
+      }
+      lt = paste(sp[6:7],collapse="")
+      season = c(season, paste0(ft,lt,collapse=""))
+    }
+    season = sort(as.numeric(season))
+    ind = c(0)
+    if (length(season) > 2){
+      for (i in 2:(length(season)-1)){
+        if (season[i+1]-season[i]==1 & season[i]-season[i-1]==1){
+          ind = c(ind,i)
+        } else{
+          ind = c(ind,0)
+        }
+      }
+    } else{
+      ind = ind
+    }
+    if (length(season) > 1){
+      ind = c(ind,0)
+    }
+    
+    df = data.frame(season, ind)
+    log = c()
+    for (i in 1:nrow(df)){
+      if(df$ind[i] == 0){
+        log = c(log,df$season[i])
+      } else{
+        if (df$ind[i-1] == 0){
+          log = c(log,"-")
+        } else{
+          log = log
+        }
+      }
+    }
+    if (length(log) > 1){
+      for (i in 1:(length(log)-1)){
+        if (log[i+1] == "-" | log[i] == "-"){
+          log[i] = log[i]
+        } else{
+          log[i] = paste0(log[i],"; ",collapse="")
+        }
+      }
+      log = paste0(log, collapse = "")
+    }
+  }
+  
+  return(log)
+}
 get_htmlnba = function(playerName){
   user_player = playerName
   user_df = cdf %>% filter(names == user_player) %>% select(actual_link)
@@ -327,6 +386,7 @@ ui <- fluidPage(
     tableOutput("accolades"),
     titlePanel("Statistics Glossary"),
     tableOutput('statindex'),
+    br(),br(),br(),
     titlePanel("Leaderboard Search"),
     div(style="display: inline-block;vertical-align:top, width = 75px",selectInput('lbchoice', "Statistic of Interest:", opch$lboptions,selected = "PTS")),
     div(style="display: inline-block;vertical-align:top; width = 25px",textInput('lbyear', "Year:")),
@@ -338,7 +398,7 @@ ui <- fluidPage(
     titlePanel(h1("Career Production Comparison")),
     plotOutput("comparison"),
     titlePanel(h1("Prime Comparison")),
-    selectInput('pkyrs', "Years of Interest:", paste0(1:20, "-year peak")),
+    selectInput('pkyrs', "Years of Interest:", paste0(1:22, "-year peak")),
     formattableOutput("prime"),
     titlePanel(h1("Statistical Progression")),
     selectInput('statint', "Statistic of Interest:", options,
@@ -355,37 +415,16 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  player1SC <- reactive({
-    scrape_nbadf(get_htmlnba(input$player1), input$player1)
-  })
-  player1AC <- reactive({
-    scrape_accolades(get_htmlnba(input$player1), input$player1)
-  })
-  player2SC <- reactive({
-    scrape_nbadf(get_htmlnba(input$player2), input$player2)
-  })
-  player2AC <- reactive({
-    scrape_accolades(get_htmlnba(input$player2), input$player2)
-  })
-
-  primey <- reactive({
-    input$pkyrs
-  })
-  stat <- reactive({
-    input$statint
-  })
-  selPlayer <- reactive({
-    input$indplayer
-  })
-  selYear <- reactive({
-    input$indyear
-  })
-  lbChoice <- reactive({
-    input$lbchoice
-  })
-  lbYear <- reactive({
-    input$lbyear
-  })
+  player1SC <- reactive({scrape_nbadf(get_htmlnba(input$player1), input$player1)})
+  player1AC <- reactive({scrape_accolades(get_htmlnba(input$player1), input$player1)})
+  player2SC <- reactive({scrape_nbadf(get_htmlnba(input$player2), input$player2)})
+  player2AC <- reactive({scrape_accolades(get_htmlnba(input$player2), input$player2)})
+  primey <- reactive({input$pkyrs})
+  stat <- reactive({input$statint})
+  selPlayer <- reactive({input$indplayer})
+  selYear <- reactive({input$indyear})
+  lbChoice <- reactive({input$lbchoice})
+  lbYear <- reactive({input$lbyear})
   
   output$accolades <- renderTable({
     acc1 = player1AC()
@@ -460,10 +499,31 @@ server <- function(input, output, session) {
     num = as.numeric(paste(s[grepl("[0-9]", s)], collapse = ""))
     player1d = player1SC() %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
     player2d = player2SC() %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
+    player1seasons = player1d$Season[1:num]
+    player2seasons = player2d$Season[1:num]
+    `Season(s)` = c(gatherseasons(player1seasons),gatherseasons(player2seasons))
+    
     table = primedf(player1d, player2d, i = num)
+    table = cbind.data.frame(table,`Season(s)`)
+    
     greater_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x > mean(x), "bold", NA)))
-    if (input$player1 == input$player2){table = table[1,]}
-    formattable(table, list(`G` = greater_bold, `PTS/G` = greater_bold, `TRB/G` = greater_bold, `AST/G` = greater_bold, `TS%` = greater_bold, `FT%` = greater_bold, PER = greater_bold, WS = greater_bold))
+    if (is.na(as.numeric(table[2,4]))){table = table[-2,]}
+    if (is.na(as.numeric(table[1,4]))){
+      table = table[-1,]
+      rownames(table) = NULL
+      }
+    if (input$player1 == input$player2 & dim(table)[1] != 0){table = table[1,]} else{table=table}
+    
+    if (dim(table)[1] == 0){
+      d = data.frame(c("No player(s) entered played that many years. Try choosing a shorter peak!"))
+      names(d) = " "
+      formattable(d)
+    } else{
+      formattable(table, list(`G` = greater_bold, `PTS/G` = greater_bold, `TRB/G` = greater_bold, `AST/G` = greater_bold, `TS%` = greater_bold, `FT%` = greater_bold, PER = greater_bold, WS = greater_bold))
+    }
+    
+    
+    
   })
   output$prog <- renderPlot({
     sel = stat()
@@ -473,19 +533,11 @@ server <- function(input, output, session) {
     bind1 = player1d[,commonvars]
     bind2 = player2d[,commonvars]
     compdf = rbind.data.frame(bind1, bind2)
-    if (input$player1 != input$player2){
-      compdf$Player = factor(compdf$Player, levels = c(input$player1, input$player2))
-      
-    } else{
-      compdf$Player = compdf$Player
-      for (i in 1:nrow(compdf)){
-        sp = strsplit(compdf$Season[i],"")[[1]]
-        if (all(sp[c(6,7)] == c("0", "0"))){
-          compdf$Yr[i] = paste0(as.character(as.numeric(paste(sp[1:2], collapse = ""))+1), "00", collapse = "") %>% as.numeric()
-        } else{
-          compdf$Yr[i] = paste(sp[c(1,2,6,7)], collapse = "") %>% as.numeric()
-        }
-      }
+    if (input$player1 != input$player2){compdf$Player = factor(compdf$Player, levels = c(input$player1, input$player2))} else{compdf$Player = compdf$Player}
+    for (i in 1:nrow(compdf)){
+      sp = strsplit(compdf$Season[i],"")[[1]]
+      l2 = paste(sp[6:7], collapse = "")
+      compdf$Season[i] = paste0("'",l2)
     }
     
     ind = which(names(compdf) == sel)
@@ -500,9 +552,9 @@ server <- function(input, output, session) {
     } else{
       ggplot(compdf, aes(x = compdf$Yr, y = compdf[,ind])) +
         geom_line(aes(color = compdf$Player)) + 
-        geom_point(aes(color = compdf$Player)) +
+        geom_point(aes(color = compdf$Player), size = I(7.5)) +
         scale_x_continuous("Year of Career", breaks = seq(min(compdf$Yr),max(compdf$Yr),1)) + scale_y_continuous(paste(sel)) +
-        theme_bw() + scale_color_manual("",values = c(color, "grey70"))
+        theme_bw() + scale_color_manual("",values = c(color, "grey70")) + geom_text(aes(label = Season), color = "white")
     }
   })
   output$statindex <- renderTable({
@@ -605,7 +657,7 @@ server <- function(input, output, session) {
     } else{
       choice = opch$choice[which(opch$lboptions == user_input)]
       if (user_input == "3P ADD" | user_input == "2P ADD" | user_input == "FT ADD"){d = finaldf %>% filter(Yr == Year) %>% select(Player, choice)} else{d = finaldf %>% filter(Yr == Year) %>% mutate(VolT = PTS + TRB + AST + STL + BLK + PER + WS + OWS + DWS) %>% filter(VolT > 360) %>% select(Player, choice)}
-      lb = data.frame(Player = d[,1][rev(order(d[,2]))], apr = round(d[,2][rev(order(d[,2]))], 3))
+      lb = data.frame(Player = d[,1][rev(order(d[,2]))], apr = round(d[,2][rev(order(d[,2]))], 2))
       lb$rk = 1:nrow(lb)
       lb = lb %>% select(rk, everything())
       
@@ -617,21 +669,12 @@ server <- function(input, output, session) {
           lb2 = lb %>% filter(Player == player)
           lb = rbind.data.frame(lb1, lb2)
         }
-      } else{
-        lb = lb %>% head(10)
-      }
+      } else{lb = lb %>% head(10)}
       
       loc = which(lb$Player == player)
       names(lb)[c(1,3)] = c("Rk.", " ")
       player_name_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x == player, "bold", NA)))
-      rank_bold <- formatter("span", style = x ~ style("font-weight" = ifelse((x == loc | loc == 11 & x > 10), "bold", NA)))
-      val_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x == lb[loc,3], "bold", NA)))
-      
-      if (is_empty(loc)){
-        formattable(lb, align = c("r", "c", "r"))
-      } else{
-        formattable(lb, align = c("r", "c", "r"), list(Rk. = rank_bold, Player = player_name_bold, ` ` = val_bold))
-      }
+      if (is_empty(loc)){formattable(lb, align = c("r", "c", "r"))} else{formattable(lb, align = c("r", "c", "r"), list(Player = player_name_bold))}
     }
   })
 }

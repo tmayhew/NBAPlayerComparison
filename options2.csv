@@ -35,4 +35,4 @@
 "34","VORP","Value Over Replacement Player"
 "35","ADD","Shooting Percentage Above/Below League Average times Shot Attempts"
 "36","APR","Adjusted Percentile Rank: Average of (Percentile + Percent of League-Best Score)"
-"37","adjPER","Adjusted PER: (PER*MP*G)/(lgAVG(MP,G))"
+"37","adjPER","Adjusted PER: PER multiplied by (MP and G) then divided by league average(MP and G)"
