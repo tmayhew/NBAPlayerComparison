@@ -8,12 +8,13 @@ options(stringsAsFactors = F)
 
 cdf = read.csv("cdf.csv")[,-1]   # comes from NBAplayerLinks.R -- attaches a list of player names to corresponding basketball-reference links
 options = read.csv("options.csv")[,-1]  # comes from options.R -- simply a list of available statistics for the user to choose from
-abbr = data.frame(Abbreviation = c("/G", "/100P", options[c(1, 2, 21:63)], "ADD"))
+statindex = read.csv("options2.csv")[,-1]
+
 tmhex = read.csv('newdata/teamabbreviations.csv')[,-1] # team hex colors
-desc = c("Per Game Statistic", "Per 100 Possessions Statistic", "Games", "Games Started", "Minutes Played", "Field Goals Made", "Field Goals Attempted","Field Goal Percentage", "3-Pointers Made", "3-Pointers Attempted", "3-Point Percentage","2-Pointers Made", "2-Pointers Attempted", "2-Point Percentage", "effective Field Goal Percentage", "Free Throws Made", "Free Throws Attempted", "Free Throw Percentage","Offensive Rebounds", "Defensive Rebounds", "Total Rebounds", "Assists", "Steals","Blocks", "Turnovers", "Personal Fouls", "Points", "Player Efficiency Rating", "True Shooting Percentage", "3-Point Attempt Rate", "Free Throw Rate", "Offensive Rebound Percentage", "Defensive Rebound Percentage", "Total Rebound Percentage","Assist Percentage", "Steal Percentage", "Block Percentage", "Turnover Percentage","Usage Percentage", "Offensive Win Shares", "Defensive Win Shares", "Win Shares", "Win Shares per 48 Minutes", "Offensive Box Plus-Minus", "Defensive Box Plus-Minus","Box Plus-Minus", "Value Over Replacement Player", "Shooting Percentage Above/Below League Average times Shot Attempts")
-statindex = cbind.data.frame(abbr, Description=desc) # a table of the statistic abbreviations and descriptions to display in app output
 finaldf = read.csv("finaldf.csv")[,-1]
 cdf$names = as.factor(cdf$names)
+opch = read.csv('lboptions.csv')[,-1]
+
 
 get_htmlnba = function(playerName){
   user_player = playerName
@@ -325,7 +326,13 @@ ui <- fluidPage(
     titlePanel("Career Accolades"),
     tableOutput("accolades"),
     titlePanel("Statistics Glossary"),
-    tableOutput('statindex')
+    tableOutput('statindex'),
+    titlePanel("Leaderboard Search"),
+    div(style="display: inline-block;vertical-align:top, width = 75px",selectInput('lbchoice', "Statistic of Interest:", opch$lboptions,selected = "PTS")),
+    div(style="display: inline-block;vertical-align:top; width = 25px",textInput('lbyear', "Year:")),
+    formattableOutput('leaderboard'),
+    "To qualify for individual statistic leaderboard, players must average 40th percentile volume statistic scores."
+
   ),
   mainPanel(
     titlePanel(h1("Career Production Comparison")),
@@ -339,7 +346,7 @@ ui <- fluidPage(
     plotOutput("prog"),
     titlePanel(h1("Seasons Comparison")),
     plotOutput('seasonscomp'),
-    br(),br(),br(),br(),br(),br(),
+    br(),br(),br(),br(),br(),br(),br(),br(),br(),br(),br(),br(),br(),
     titlePanel(h1("Individual Season Search")),
     div(style="display: inline-block;vertical-align:top",selectInput('indplayer', "Player:", c(levels(as.factor(finaldf$Player))), selected = "Michael Jordan")),
     div(style="display: inline-block;vertical-align:top; width: 150px",textInput('indyear', "Year:")),
@@ -373,17 +380,26 @@ server <- function(input, output, session) {
   selYear <- reactive({
     input$indyear
   })
+  lbChoice <- reactive({
+    input$lbchoice
+  })
+  lbYear <- reactive({
+    input$lbyear
+  })
   
   output$accolades <- renderTable({
     acc1 = player1AC()
     acc2 = player2AC()
-    accdf = rbind.data.frame(acc1, acc2)
+    if (input$player1 != input$player2){accdf = rbind.data.frame(acc1, acc2)} else{accdf = acc1}
     names(accdf) = c("Player", "All Star Selections", "All-NBA Selections","All-Defensive Team Selections", "6th Man of the Year Awards", "Scoring Titles","Most Valuable Player Awards", "Finals Most Valuable Player Awards",  "Championships", "Rookie Of the Year", "All-Rookie Team", "Hall of Fame Induction")
     accdf = t(accdf)
     colnames(accdf) = accdf[1,]
-    accdf = accdf[-1,]
+    accdf = as.data.frame(accdf[-1,])
+    if (names(accdf)[1] == "accdf[-1, ]"){
+      colnames(accdf)[1] = input$player1
+    }
     greater_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x > mean(x), "bold", NA)))
-    formattable(as.data.frame(accdf))
+    formattable(accdf)
   },rownames = T)
   output$comparison <- renderPlot({
     player1d = player1SC()
@@ -459,8 +475,17 @@ server <- function(input, output, session) {
     compdf = rbind.data.frame(bind1, bind2)
     if (input$player1 != input$player2){
       compdf$Player = factor(compdf$Player, levels = c(input$player1, input$player2))
+      
     } else{
       compdf$Player = compdf$Player
+      for (i in 1:nrow(compdf)){
+        sp = strsplit(compdf$Season[i],"")[[1]]
+        if (all(sp[c(6,7)] == c("0", "0"))){
+          compdf$Yr[i] = paste0(as.character(as.numeric(paste(sp[1:2], collapse = ""))+1), "00", collapse = "") %>% as.numeric()
+        } else{
+          compdf$Yr[i] = paste(sp[c(1,2,6,7)], collapse = "") %>% as.numeric()
+        }
+      }
     }
     
     ind = which(names(compdf) == sel)
@@ -476,56 +501,12 @@ server <- function(input, output, session) {
       ggplot(compdf, aes(x = compdf$Yr, y = compdf[,ind])) +
         geom_line(aes(color = compdf$Player)) + 
         geom_point(aes(color = compdf$Player)) +
-        scale_x_continuous("Year of Career") + scale_y_continuous(paste(sel)) +
-        theme_classic() + scale_color_manual("",values = c(color, "grey70"))
+        scale_x_continuous("Year of Career", breaks = seq(min(compdf$Yr),max(compdf$Yr),1)) + scale_y_continuous(paste(sel)) +
+        theme_bw() + scale_color_manual("",values = c(color, "grey70"))
     }
   })
   output$statindex <- renderTable({
     statindex
-  })
-  output$indseason <- renderPlot({
-    player = selPlayer()
-    year = selYear()
-    yrdf = finaldf %>% filter(Player == player, Yr == year)
-    if ((dim(yrdf)[1]) == 0){
-      ggplot() + ggtitle("Select a Player and then input a Year in which that player was active (since 1952).") + theme_minimal()
-    } else{
-      sta = names(yrdf)[6:21]
-      val = (yrdf)[6:21] %>% t()
-      st = cbind.data.frame(sta, val)
-      st = st %>% filter(sta != "SPBtPFR")
-      for (i in 1:nrow(st)){
-        if (st$val[i] == 100){
-          st$col[i] = "League-Leading"
-        } else if (st$val[i] >= 50){
-          st$col[i] = "Above Average"
-        } else{
-          st$col[i] = "Below Average"
-        }
-      }
-      st$col = factor(st$col, levels = c("Below Average", "Above Average", "League-Leading"))
-      
-      for (i in 1:nrow(st)){if (st$sta[i] %in% c("x3PAVG", "x2PAVG", "xFTAVG", "ASTtTOV", "SPBtPFR", "TS", "FTr")){st$type[i] = "eff"} else{st$type[i] = "vol"}}
-      st$sta[1] = "3P ADD"
-      st$sta[2] = "2P ADD"
-      st$sta[3] = "FT ADD"
-      st$sta[9] = "AST/TOV"
-      st$sta[14] = "TS%"
-      st = st %>% arrange(type, val)
-      st$sta = factor(st$sta, levels = st$sta)
-      
-      if (all(st$col %in% c("Above Average", "League-Leading"))){
-        colors = c(MixColor("white", "#ff9900", 0.5), "#ff9900")
-      } else{
-        colors = c("#9B2335",MixColor("white", "#ff9900", 0.5),"#ff9900")
-      }
-      
-      p = st %>% ggplot(aes(x = sta, y = val)) + geom_hline(yintercept = 50, linetype = "dashed") + geom_bar(stat = "identity", width = I(1/2), alpha = I(3/4), aes(fill = as.factor(col)), color = "black") + coord_flip() + scale_y_continuous("Mean of Percentile Rank and Percent of League-Best Value") + scale_x_discrete("") + scale_fill_manual("",values = colors) + theme_classic() + theme(legend.position = "top", panel.background = element_rect(fill = "grey95")) + geom_vline(xintercept = 6.5) + geom_hline(yintercept = 102) +
-        annotate("text", x = 11.5, y = 106, label = "Volume", angle = 270) + #MixColor("white", "#9B2335", .8)
-        annotate("text", x = 3.5, y = 106, label = "Efficiency", angle = 270)
-      p
-      
-    }
   })
   output$seasonscomp <- renderPlot({
     player1 = input$player1
@@ -566,7 +547,93 @@ server <- function(input, output, session) {
                     (limit2/w[2,1]), linetype = "dashed", color = "#d29914") +  geom_point(size = I(7.5)) +
       geom_text(aes(label = Yr), color = "white") +
       theme(legend.position = "top") # c(0.10, .90))
-  }, height = 525)
+  }, height = 625)
+  output$indseason <- renderPlot({
+    player = selPlayer()
+    year = selYear()
+    yrdf = finaldf %>% filter(Player == player, Yr == year)
+    if ((dim(yrdf)[1]) == 0){
+      ggplot() + ggtitle("Select a Player and then input a Year in which that player was active (since 1952).") + theme_minimal()
+    } else{
+      sta = names(yrdf)[6:21]
+      val = (yrdf)[6:21] %>% t()
+      st = cbind.data.frame(sta, val)
+      st = st %>% filter(sta != "SPBtPFR")
+      for (i in 1:nrow(st)){
+        if (st$val[i] == 100){
+          st$col[i] = "League-Leading"
+        } else if (st$val[i] >= 50){
+          st$col[i] = "Above Average"
+        } else{
+          st$col[i] = "Below Average"
+        }
+      }
+      st$col = factor(st$col, levels = c("Below Average", "Above Average", "League-Leading"))
+      
+      for (i in 1:nrow(st)){if (st$sta[i] %in% c("x3PAVG", "x2PAVG", "xFTAVG", "ASTtTOV", "SPBtPFR", "TS", "FTr")){st$type[i] = "eff"} else{st$type[i] = "vol"}}
+      st$sta[1] = "3P ADD"
+      st$sta[2] = "2P ADD"
+      st$sta[3] = "FT ADD"
+      st$sta[9] = "AST/TOV"
+      st$sta[14] = "TS%"
+      st = st %>% arrange(type, val)
+      st$sta = factor(st$sta, levels = st$sta)
+      
+      if (all(st$col %in% c("Above Average", "League-Leading"))){
+        colors = c(MixColor("white", "#ff9900", 0.5), "#ff9900")
+      } else{
+        colors = c("#9B2335",MixColor("white", "#ff9900", 0.5),"#ff9900")
+      }
+      
+      p = st %>% ggplot(aes(x = sta, y = val)) + geom_hline(yintercept = 50, linetype = "dashed") + geom_bar(stat = "identity", width = I(1/2), alpha = I(3/4), aes(fill = as.factor(col)), color = "black") + coord_flip() + scale_y_continuous("Adjusted Percentile Rank") + scale_x_discrete("") + scale_fill_manual("",values = colors) + theme_classic() + theme(legend.position = "top", panel.background = element_rect(fill = "grey95")) + geom_vline(xintercept = 6.5) + geom_hline(yintercept = 102) +
+        annotate("text", x = 11.5, y = 106, label = "Volume", angle = 270) + #MixColor("white", "#9B2335", .8)
+        annotate("text", x = 3.5, y = 106, label = "Efficiency", angle = 270)
+      p
+      
+    }
+  })
+  output$leaderboard <- renderFormattable({
+    user_input = lbChoice()
+    Year = lbYear()
+    player = selPlayer()
+    
+    if ((Year %in% 1952:(format(Sys.Date(), "%Y")))==F){
+      d = data.frame(c("Select a year and statistic to view the leaderboard."))
+      names(d) = " "
+      formattable(d)
+      
+    } else{
+      choice = opch$choice[which(opch$lboptions == user_input)]
+      if (user_input == "3P ADD" | user_input == "2P ADD" | user_input == "FT ADD"){d = finaldf %>% filter(Yr == Year) %>% select(Player, choice)} else{d = finaldf %>% filter(Yr == Year) %>% mutate(VolT = PTS + TRB + AST + STL + BLK + PER + WS + OWS + DWS) %>% filter(VolT > 360) %>% select(Player, choice)}
+      lb = data.frame(Player = d[,1][rev(order(d[,2]))], apr = round(d[,2][rev(order(d[,2]))], 3))
+      lb$rk = 1:nrow(lb)
+      lb = lb %>% select(rk, everything())
+      
+      if (player %in% lb$Player){
+        if (player %in% lb$Player[1:10]){
+          lb = lb %>% head(10)
+        } else{
+          lb1 = lb %>% head(10)
+          lb2 = lb %>% filter(Player == player)
+          lb = rbind.data.frame(lb1, lb2)
+        }
+      } else{
+        lb = lb %>% head(10)
+      }
+      
+      loc = which(lb$Player == player)
+      names(lb)[c(1,3)] = c("Rk.", " ")
+      player_name_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x == player, "bold", NA)))
+      rank_bold <- formatter("span", style = x ~ style("font-weight" = ifelse((x == loc | loc == 11 & x > 10), "bold", NA)))
+      val_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x == lb[loc,3], "bold", NA)))
+      
+      if (is_empty(loc)){
+        formattable(lb, align = c("r", "c", "r"))
+      } else{
+        formattable(lb, align = c("r", "c", "r"), list(Rk. = rank_bold, Player = player_name_bold, ` ` = val_bold))
+      }
+    }
+  })
 }
 
 shinyApp(ui, server)

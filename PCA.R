@@ -63,11 +63,19 @@ for (i in 1952:2020){
     df$Player[i] = paste(letters, collapse = "")
   } # taking away asterisks for HOF players
   lgAvg3P = sum(df$X3P)/sum(df$X3PA);lgAvg2P = sum(df$X2P)/sum(df$X2PA);lgAvgMP = sum(df$MP)/nrow(df);lgAvgG = max(df$G)
-  fdf = df %>% transmute(Player, Yr, x3PAVG = ((X3P. - lgAvg3P)*(X3PA)),x2PAVG = ((X2P. - lgAvg2P)*(X2PA)),xFTAVG = ((FT. - lgAvgFT)*(FTA)),PTS = PTS/G,TRB = TRB/G,AST = AST/G,STL = STL/G,BLK = BLK/G,ASTtTOV = TOV/G,SPBtPFR = (STL + BLK)/PF,PER = PER*(MP/(lgAvgMP))*(G/lgAvgG),WS = WS/G,OWS = OWS/G,DWS = DWS/G,TS = TS.,FTr = FTr)
+  if (any(names(df) == "FT.1")){
+    names(df)[which(names(df) == "FT.1")] = "FT."
+  }
+  fdf = df %>% transmute(Player, Yr, x3PAVG = ((X3P. - lgAvg3P)*(X3PA)),x2PAVG = ((X2P. - lgAvg2P)*(X2PA)),xFTAVG = ((FT. - lgAvgFT)*(FTA)),PTS = PTS/G,TRB = TRB/G,AST = AST/G,STL = STL/G,BLK = BLK/G,ASTtTOV = TOV/G,SPBtPFR = (STL + BLK)/PF,PER = PER*(MP/(lgAvgMP))*(G/lgAvgG),WS = WS/G,OWS = OWS/G,DWS = DWS/G,TS = (TS.),FTr = (FTr))
   for (i in 1:nrow(fdf)){if (fdf$ASTtTOV[i] != 0){fdf$ASTtTOV[i] = (fdf$AST[i])/(fdf$ASTtTOV[i])} else{fdf$ASTtTOV[i] = 0}}
   for (i in 1:nrow(fdf)){if (is.infinite(fdf$SPBtPFR[i])){fdf$SPBtPFR[i] = 0} else{fdf$SPBtPFR[i] = fdf$SPBtPFR[i]}}
+  original = fdf %>% transmute(PTS, TRB, AST, BLK, STL, adj.PER = PER, WS.G = WS, OWS.G = OWS, DWS.G = DWS, TS. = TS, x3PAVG = x3PAVG, x2PAVG = x2PAVG, xFTAVG = xFTAVG, AST.TOV = ASTtTOV, FTr)
+  names(original) = paste0("orig.", names(original))
+  for (i in 1:nrow(original)){for (j in 1:ncol(original)){if (is.nan(original[i,j])){original[i,j] = 0}}}
+  
   fdf[3:ncol(fdf)] = scale(fdf[3:ncol(fdf)])
   for (i in 1:nrow(fdf)){for (j in 1:ncol(fdf)){if (is.nan(fdf[i,j])){fdf[i,j] = 0}}}
+  
   eff = c(3, 4, 5, 11, 12, 17, 18);names(fdf)[eff]
   vol = c(6, 7, 8, 9, 10, 13, 14, 15, 16);names(fdf)[vol]
   if (fdf$Yr[1] < 1974){
@@ -107,6 +115,7 @@ for (i in 1952:2020){
       finaldf[,j] = ((100*(int2/max(int2)))+int1)/2
     }
   }
+  finaldf = cbind.data.frame(finaldf, original)
   write.csv(finaldf, paste0('newdata/', year, 'PC.csv'))
 }
 
