@@ -121,13 +121,13 @@ scrape_nbadf = function(htmlinput, user_player){
   
   # PER GAME
   dat_ = dat %>% transmute(Season, Age, Tm, Lg, Pos, G, 
-                           FG = FG/G,
-                           FGA = FGA/G,
-                           FT = FT/G,
-                           FTA = FTA/G, 
-                           PTS = PTS/G,
-                           PF = PF/G,
-                           AST = AST/G,
+                           FG = ifelse("FG" %in% names(dat),FG/G,0),
+                           FGA = ifelse("FGA" %in% names(dat),FGA/G,0),
+                           FT = ifelse("FT" %in% names(dat),FT/G,0),
+                           FTA = ifelse("FTA" %in% names(dat),FTA/G,0),
+                           PTS = ifelse("PTS" %in% names(dat),PTS/G,0),
+                           PF = ifelse("PF" %in% names(dat), PF/G,0),
+                           AST = ifelse("AST" %in% names(dat), AST/G,0),
                            MP = if(is.null(dat$MP)){0} else{MP/G},
                            TRB = if(is.null(dat$TRB)){0} else{TRB/G},
                            TOV = if(is.null(dat$TOV)){0} else{TOV/G},
@@ -235,7 +235,6 @@ scrape_nbadf = function(htmlinput, user_player){
   finaldf$Player = user_player
   finaldf = finaldf %>% select(Player, Yr, everything())
   for (i in 1:nrow(finaldf)){for (j in 1:ncol(finaldf)){if (is.na(finaldf[i,j])){finaldf[i,j] = 0}}}
-  
   return(finaldf)
 } # given a player name and corresponding html, returns career dataframe including all statistics
 scrape_accolades = function(html_input, user_player){
@@ -369,24 +368,25 @@ scrape_accolades = function(html_input, user_player){
   return(accdf)
 } # scrapes the player's awards an honors (found at the top of the basketball-reference page)
 primedf = function(player1d, player2d, i = 1){
-  p1p1 = player1d[1:i,] %>% summarise(Player = Player[1], G = sum(G),`PTS/G` = round(sum(PTS)/G,2),`TRB/G` = round(sum(TRB)/G,2),`AST/G` = round(sum(AST)/G,2),`TS%` = round(sum((`TS%`*FGA))/sum(FGA),4),`FT%` = round(sum((`FT%`*FTA))/sum(FTA),4),PER = round(sum(PER*G)/(G*i),2),WS = round(sum(WS*G)/(G*i),2))
-  p2p1 = player2d[1:i,] %>% summarise(Player = Player[1], G = sum(G),`PTS/G` = round(sum(PTS)/G,2),`TRB/G` = round(sum(TRB)/G,2),`AST/G` = round(sum(AST)/G,2),`TS%` = round(sum((`TS%`*FGA))/sum(FGA),4),`FT%` = round(sum((`FT%`*FTA))/sum(FTA),4),PER = round(sum(PER*G)/(G*i),2),WS = round(sum(WS*G)/(G*i),2))
-  table = rbind.data.frame(p1p1, p2p1)
+  if (all(names(player1d) != "AST/G")){p1p1 = NULL} else{p1p1 = player1d[1:i,] %>% summarise(Player = Player[1], G = sum(G),`PTS/G` = round(sum(PTS)/G,2),`TRB/G` = round(sum(TRB)/G,2),`AST/G` = round(sum(AST)/G,2),`TS%` = round(sum((`TS%`*FGA))/sum(FGA),4),`FT%` = round(sum((`FT%`*FTA))/sum(FTA),4),PER = round(sum(PER*G)/(G*i),2),WS = round(sum(WS*G)/(G*i),2))}
+  if (all(names(player2d) != "AST/G")){p2p1 = NULL} else{p2p1 = player2d[1:i,] %>% summarise(Player = Player[1], G = sum(G),`PTS/G` = round(sum(PTS)/G,2),`TRB/G` = round(sum(TRB)/G,2),`AST/G` = round(sum(AST)/G,2),`TS%` = round(sum((`TS%`*FGA))/sum(FGA),4),`FT%` = round(sum((`FT%`*FTA))/sum(FTA),4),PER = round(sum(PER*G)/(G*i),2),WS = round(sum(WS*G)/(G*i),2))}
+  if (is.null(p1p1) & is.null(p2p1)){table = NULL} else{table = rbind.data.frame(p1p1, p2p1)}
   return(table)
 } # takes in both players' data and a number (x) and returns the best x years data averages ("best" calculated by a linear combination of simplified GmSc, PER, WS)
+sm = sample(1:(levels(as.factor(finaldf$Player)) %>% length()),2);p1 = finaldf$Player[sm[1]];p2 = finaldf$Player[sm[2]]
 
 ui <- fluidPage(
   headerPanel("NBA Player Comparison"),
   sidebarPanel(
     selectInput('player1', "Player 1", c(levels(as.factor(finaldf$Player))),
-                selected = "Michael Jordan"),
+                selected = p1),
     selectInput('player2', "Player 2", c(levels(as.factor(finaldf$Player))),
-                selected = "LeBron James"),
+                selected = p2),
     titlePanel("Career Accolades"),
     tableOutput("accolades"),
     titlePanel("Statistics Glossary"),
     tableOutput('statindex'),
-    br(),br(),br(),
+    #br(),br(),br(),
     titlePanel("Leaderboard Search"),
     div(style="display: inline-block;vertical-align:top, width = 75px",selectInput('lbchoice', "Statistic of Interest:", opch$lboptions,selected = "PTS")),
     div(style="display: inline-block;vertical-align:top; width = 25px",textInput('lbyear', "Year:")),
@@ -408,7 +408,7 @@ ui <- fluidPage(
     plotOutput('seasonscomp'),
     br(),br(),br(),br(),br(),br(),br(),br(),br(),br(),br(),br(),br(),
     titlePanel(h1("Individual Season Search")),
-    div(style="display: inline-block;vertical-align:top",selectInput('indplayer', "Player:", c(levels(as.factor(finaldf$Player))), selected = "Michael Jordan")),
+    div(style="display: inline-block;vertical-align:top",selectInput('indplayer', "Player:", c(levels(as.factor(finaldf$Player))), selected = p1)),
     div(style="display: inline-block;vertical-align:top; width: 150px",textInput('indyear', "Year:")),
     plotOutput('indseason')
   )
@@ -443,6 +443,7 @@ server <- function(input, output, session) {
   output$comparison <- renderPlot({
     player1d = player1SC()
     player2d = player2SC()
+    g = player1car = player1sum = player2car = player2sum = NULL
     commonvars = intersect(names(player1d), names(player2d))
     bind1 = player1d[,commonvars]
     bind2 = player2d[,commonvars]
@@ -483,47 +484,71 @@ server <- function(input, output, session) {
     
     careertot = rbind.data.frame(player1sum, player2sum)
     g = careertot %>% select(-MP) %>% gather("Stat", "Value", -Player)
-    if (input$player1 != input$player2){
+    if (input$player1 != input$player2 & (is.null(g)==F)){
       g$Player = factor(g$Player, levels = c(input$player1, input$player2))
     } else{
       g$Player = g$Player
     }
     
-    g %>% ggplot(aes(x = Stat, y = Value)) + geom_bar(stat = "identity", position = "dodge", width = I(1/2), aes(fill = Player)) + theme_classic() + scale_fill_manual("",values = c(color, "grey70")) +
-      scale_y_continuous("") + scale_x_discrete("") +
-      theme(legend.position = c(0.15,0.90))
+    if (is.null(g)){
+      ggplot() + ggtitle("One or both of the players selected have not registered enough statistics. Please try another!") + theme_minimal()    
+    } else{
+      g %>% ggplot(aes(x = Stat, y = Value)) + geom_bar(stat = "identity", position = "dodge", width = I(1/2), aes(fill = Player)) + theme_classic() + scale_fill_manual("",values = c(color, "grey70")) +
+        scale_y_continuous("") + scale_x_discrete("") +
+        theme(legend.position = c(0.15,0.90))
+    }
+    
   })
   output$prime <- renderFormattable({
     num = primey()
     s = strsplit(num, "")[[1]]
     num = as.numeric(paste(s[grepl("[0-9]", s)], collapse = ""))
-    player1d = player1SC() %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
-    player2d = player2SC() %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
-    player1seasons = player1d$Season[1:num]
-    player2seasons = player2d$Season[1:num]
-    `Season(s)` = c(gatherseasons(player1seasons),gatherseasons(player2seasons))
+    player1s = finaldf %>% filter(Player == input$player1) %>% mutate(sc = 0.1460142*Eff + 1.2299956*Vol) %>% arrange(desc(sc)) %>% select(Player, Yr, sc)
+    player1d = player1SC()
+    for (i in 1:nrow(player1d)){
+      player1d$Yr[i] = as.numeric(paste0(strsplit(player1d$Season[i], "")[[1]][1:4], collapse = ""))+1
+    }
+    player1d = left_join(player1d, player1s, by = c("Player","Yr")) %>% drop_na() %>% arrange(desc(sc))
     
-    table = primedf(player1d, player2d, i = num)
-    table = cbind.data.frame(table,`Season(s)`)
+    player2s = finaldf %>% filter(Player == input$player2) %>% mutate(sc = 0.1460142*Eff + 1.2299956*Vol) %>% arrange(desc(sc)) %>% select(Player, Yr, sc)
+    player2d = player2SC()
+    for (i in 1:nrow(player2d)){
+      player2d$Yr[i] = as.numeric(paste0(strsplit(player2d$Season[i], "")[[1]][1:4], collapse = ""))+1
+    }
+    player2d = left_join(player2d, player2s, by = c("Player","Yr")) %>% drop_na() %>% arrange(desc(sc))
+    p1null = primedf(player1d,player1d,1);p2null = primedf(player2d,player2d,1)
     
-    greater_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x > mean(x), "bold", NA)))
-    if (is.na(as.numeric(table[2,4]))){table = table[-2,]}
-    if (is.na(as.numeric(table[1,4]))){
-      table = table[-1,]
-      rownames(table) = NULL
-      }
-    if (input$player1 == input$player2 & dim(table)[1] != 0){table = table[1,]} else{table=table}
-    
-    if (dim(table)[1] == 0){
-      d = data.frame(c("No player(s) entered played that many years. Try choosing a shorter peak!"))
+    if (is.null(p1null) & is.null(p2null)){
+      d = data.frame(c("Both players entered are missing statistics crucial to evaluating prime years. Please choose different player(s)."))
       names(d) = " "
       formattable(d)
     } else{
-      formattable(table, list(`G` = greater_bold, `PTS/G` = greater_bold, `TRB/G` = greater_bold, `AST/G` = greater_bold, `TS%` = greater_bold, `FT%` = greater_bold, PER = greater_bold, WS = greater_bold))
+      player1seasons = player1d$Season[1:num]
+      player2seasons = player2d$Season[1:num]
+      `Season(s)` = c(gatherseasons(player1seasons),gatherseasons(player2seasons))
+      
+      table = NULL
+      table = primedf(player1d, player2d, i = num)
+      table = cbind.data.frame(table,`Season(s)`)
+      
+      if (is.null(p1null)){table = table[2,]} else if(is.null(p2null)){table = table[1,]};rownames(table) = NULL
+      
+      greater_bold <- formatter("span", style = x ~ style("font-weight" = ifelse(x > mean(x), "bold", NA)))
+      if (is.na(as.numeric(table[2,4]))){table = table[-2,]}
+      if (is.na(as.numeric(table[1,4]))){
+        table = table[-1,]
+        rownames(table) = NULL
+      }
+      if (input$player1 == input$player2 & dim(table)[1] != 0){table = table[1,]} else{table=table}
+      
+      if (dim(table)[1] == 0){
+        d = data.frame(c("No player(s) entered played that many years. Try choosing a shorter peak!"))
+        names(d) = " "
+        formattable(d)
+      } else{
+        formattable(table, list(`G` = greater_bold, `PTS/G` = greater_bold, `TRB/G` = greater_bold, `AST/G` = greater_bold, `TS%` = greater_bold, `FT%` = greater_bold, PER = greater_bold, WS = greater_bold))
+      }
     }
-    
-    
-    
   })
   output$prog <- renderPlot({
     sel = stat()
@@ -542,7 +567,14 @@ server <- function(input, output, session) {
     
     ind = which(names(compdf) == sel)
     
-    p1ord = player1d %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
+    p1ord = player1d %>% mutate(GmSc = 100*ifelse("PER" %in% names(player1d),PER,0) + 
+                                  100*ifelse("WS" %in% names(player1d),WS,0) + 
+                                  2*ifelse("PTS" %in% names(player1d),PTS,0) + 
+                                  (0.4*ifelse("FG" %in% names(player1d),FG,0)) - 
+                                  (0.7*ifelse("FGA" %in% names(player1d),FGA,0)) - 
+                                  ifelse("TRB" %in% names(player1d),TRB,0) + 
+                                  (0.7*ifelse("AST" %in% names(player1d),AST,0)) - 
+                                  (0.4*ifelse("PF" %in% names(player1d),PF,0))) %>% arrange(desc(GmSc))
     team = p1ord %>% select(Tm) %>% head(5) %>% group_by(Tm) %>% summarize(n = n(),.groups = 'drop') %>% arrange(desc(n))
     playerTeam = ifelse(team$n[1] > 0.50*(min(nrow(player1d), 5)), team$Tm[1], "None")
     if (playerTeam %in% tmhex$abb){color = tmhex$hex[grep(playerTeam, tmhex$abb)]} else{color = "black"}
@@ -580,7 +612,14 @@ server <- function(input, output, session) {
       toplot$Yr[i] = paste0("'",l2)
     }
     player1d = player1SC()
-    p1ord = player1d %>% mutate(GmSc = 100*PER + 100*WS + 2*PTS + (0.4*FG) - (0.7*FGA) - (0.4*(FTA - FT)) + TRB + (0.7*AST) - (0.4*PF)) %>% arrange(desc(GmSc))
+    p1ord = p1ord = player1d %>% mutate(GmSc = 100*ifelse("PER" %in% names(player1d),PER,0) + 
+                                          100*ifelse("WS" %in% names(player1d),WS,0) + 
+                                          2*ifelse("PTS" %in% names(player1d),PTS,0) + 
+                                          (0.4*ifelse("FG" %in% names(player1d),FG,0)) - 
+                                          (0.7*ifelse("FGA" %in% names(player1d),FGA,0)) - 
+                                          ifelse("TRB" %in% names(player1d),TRB,0) + 
+                                          (0.7*ifelse("AST" %in% names(player1d),AST,0)) - 
+                                          (0.4*ifelse("PF" %in% names(player1d),PF,0))) %>% arrange(desc(GmSc))
     team = p1ord %>% select(Tm) %>% head(5) %>% group_by(Tm) %>% summarize(n = n(),.groups = 'drop') %>% arrange(desc(n))
     playerTeam = ifelse(team$n[1] > 0.50*(min(nrow(player1d), 5)), team$Tm[1], "None")
     if (playerTeam %in% tmhex$abb){color = tmhex$hex[grep(playerTeam, tmhex$abb)]} else{color = "black"}

@@ -3,7 +3,6 @@ library(tidyverse)
 library(formattable)
 library(stringi)
 options(stringsAsFactors = F)
-finaldf = read.csv("finaldf.csv")[,-1]
 
 letters = str_to_lower(LETTERS)
 letters_vec = letters;cdf = NULL
@@ -75,4 +74,66 @@ for (i in 1:length(cdf$names)){cdf$names[i] = makeJr(cdf$names[i])}
 DJMbenga = data.frame(names = "D.J. Mbenga", actual_link = "https://www.basketball-reference.com/players/m/mbengdj01.html")
 cdf = rbind.data.frame(cdf, DJMbenga)
 
+cdf$names[which(grepl("Dan Anderson",cdf$names))][1] = "Dan Anderson (1)"
+cdf$names[which(grepl("Dan Anderson",cdf$names))][2] = "Dan Anderson"
+cdf$names[which(grepl("Bill Bradley",cdf$names))][1] = "Bill Bradley"
+cdf$names[which(grepl("Bill Bradley",cdf$names))][2] = "Bill Bradley (2)"
+cdf$names[which(grepl("Dee Brown \\[II/Jr.\\]",cdf$names))] = "Dee Brown (2)"
+cdf$names[which(grepl("Roger Brown",cdf$names))][1] = "Roger Brown (1)"
+cdf$names[which(grepl("Roger Brown",cdf$names))][2] = "Roger Brown"
+cdf$names[which(grepl("Mark Davis \\[II/Jr.\\]",cdf$names))] = "Mark Davis (2)"
+cdf$names[which(grepl("Mike Davis \\[II/Jr.\\]",cdf$names))] = "Mike Davis (2)"
+cdf$names[which(grepl("Mike Dunleavy \\[II/Jr.\\]",cdf$names))] = "Mike Dunleavy Jr."
+cdf$names[which(grepl("Patrick Ewing \\[II/Jr.\\]",cdf$names))] = "Patrick Ewing Jr."
+cdf$names[which(grepl("Cedric Henderson \\[II/Jr.\\]",cdf$names))] = "Cedric Henderson (2)"
+cdf$names[which(grepl("Gerald Henderson \\[II/Jr.\\]",cdf$names))] = "Gerald Henderson (2)"
+cdf$names[which(grepl("Luke Jackson \\[II/Jr.\\]",cdf$names))] = "Luke Jackson (2)"
+cdf$names[which(grepl("Tony Jackson \\[II/Jr.\\]",cdf$names))] = "Tony Jackson (2)"
+cdf$names[which(grepl("Mike James \\[II/Jr.\\]",cdf$names))] = "Mike James (2)"
+cdf$names[which(grepl("Chris Johnson \\[II/Jr.\\]",cdf$names))] = "Chris Johnson (2)"
+cdf$names[which(grepl("Eddie Johnson \\[II/Jr.\\]",cdf$names))] = "Eddie Johnson (2)"
+cdf$names[which(grepl("George Johnson \\[II/Jr.\\]",cdf$names))] = "George Johnson (2)"
+cdf$names[which(grepl("George Johnson \\[III\\]",cdf$names))] = "George Johnson (3)"
+cdf$names[which(grepl("Ken Johnson \\[II/Jr.\\]",cdf$names))] = "Ken Johnson (2)"
+cdf$names[which(grepl("Larry Johnson \\[II/Jr.\\]",cdf$names))] = "Larry Johnson (2)"
+cdf$names[which(grepl("Bobby Jones \\[II/Jr.\\]",cdf$names))] = "Bobby Jones (2)"
+cdf$names[which(grepl("Charles Jones \\[II/Jr.\\]",cdf$names))] = "Charles Jones (2)"
+cdf$names[which(grepl("Charles Jones \\[III\\]",cdf$names))] = "Charles Jones (3)"
+cdf$names[which(grepl("Mark Jones \\[II/Jr.\\]",cdf$names))] = "Mark Jones (2)"
+cdf$names[which(grepl("George King \\[II/Jr.\\]",cdf$names))] = "George King (2)"
+cdf$names[which(grepl("David Lee",cdf$names))][1] = "David Lee (1)"
+cdf$names[which(grepl("David Lee",cdf$names))][2] = "David Lee"
+cdf$names[which(grepl("Tony Mitchell \\[II/Jr.\\]",cdf$names))] = "Tony Mitchell (2)"
+cdf$names[which(grepl("Jim Paxson \\[II/Jr.\\]",cdf$names))] = "Jim Paxson (2)"
+cdf$names[which(grepl("Walker Russell \\[II/Jr.\\]",cdf$names))] = "Walker Russell (2)"
+cdf$names[which(grepl("Charles Smith \\[II/Jr.\\]",cdf$names))] = "Charles Smith (2)"
+cdf$names[which(grepl("Charles Smith \\[III\\]",cdf$names))] = "Charles Smith (3)"
+cdf$names[which(grepl("Chris Smith \\[II/Jr.\\]",cdf$names))] = "Chris Smith (2)"
+cdf$names[which(grepl("Greg Smith \\[II/Jr.\\]",cdf$names))] = "Greg Smith (2)"
+cdf$names[which(grepl("Michael Smith \\[II/Jr.\\]",cdf$names))] = "Michael Smith (2)"
+cdf$names[which(grepl("Sam Smith",cdf$names))][1] = "Sam Smith (1)"
+cdf$names[which(grepl("Sam Smith",cdf$names))][2] = "Sam Smith"
+cdf$names[which(grepl("Jack Turner \\[II/Jr.\\]",cdf$names))] = "Jack Turner (2)"
+cdf$names[which(grepl("David Vaughn",cdf$names))][1] = "David Vaughn (1)"
+cdf$names[which(grepl("David Vaughn",cdf$names))][2] = "David Vaughn"
+cdf$names[which(grepl("Marcus Williams \\[II/Jr.\\]",cdf$names))] = "Marcus Williams (2)"
+cdf$names[which(grepl("Reggie Williams \\[II/Jr.\\]",cdf$names))] = "Reggie Williams (2)"
+cdf$names[which(grepl("Sam Williams \\[II/Jr.\\]",cdf$names))] = "Sam Williams (2)"
+cdf$names[which(grepl("Bobby Wilson",cdf$names))][1] = "Bobby Wilson (1)"
+cdf$names[which(grepl("Bobby Wilson",cdf$names))][2] = "Bobby Wilson"
+cdf$names[which(grepl("Chris Wright \\[II/Jr.\\]",cdf$names))] = "Chris Wright (2)"
+
+#cdf$names[which(grepl("\\[",cdf$names))]
+#cdf$names[which(grepl("\\[",cdf$names))] %>% length()
+#fin %>% filter(grepl("Chris Wright",Player)) %>% select(Player, Yr, everything())
+
 write.csv(cdf, "cdf.csv")
+
+
+
+
+
+
+
+
+

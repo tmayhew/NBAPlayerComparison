@@ -6,9 +6,7 @@ adv_scrape = function(year){
   html = read_html(link1)
   adv_ = html_table(html)[[1]]
   adv_ = adv_[,-c(which(names(adv_) == ""))]
-  adv_ = adv_[-which(adv_$Rk == "Rk"),]
-  
-  adv = adv_[,-1]
+  adv = adv_[-which(adv_$Rk == "Rk"),]
   for (i in 1:nrow(adv)){
     for (j in 1:ncol(adv)){
       if (adv[i,j] == ""){
@@ -19,29 +17,46 @@ adv_scrape = function(year){
     }
   }
   adv$Yr = year
-  adv = adv %>% distinct(Player, .keep_all = T)
-  adv = adv %>% select(-Pos, -Age, -Tm, -G, -MP)
+  adv = adv %>% distinct(Rk, .keep_all = T)
+  adv = adv %>% select(-Pos, -Age, -Tm, -G, -MP, -Rk)
+  for (i in 2:nrow(adv)){
+    if (adv$Player[i] == adv$Player[i-1]){
+      adv$Player[i] = paste(adv$Player[i], "(2)", collapse = "")
+    } else{
+      adv$Player[i] = adv$Player[i]
+    }
+  }
   return(adv)
 }
 tot_scrape = function(year){
   link1 = paste0("https://www.basketball-reference.com/leagues/NBA_", year, "_totals.html")
   html = read_html(link1)
-  adv_ = html_table(html)[[1]]
-  adv_ = adv_[-which(adv_$Rk == "Rk"),]
-  
-  adv = adv_[,-1]
-  for (i in 1:nrow(adv)){
-    for (j in 1:ncol(adv)){
-      if (adv[i,j] == ""){
-        adv[i,j] = 0
+  tot_ = html_table(html)[[1]]
+  tot = tot_[-which(tot_$Rk == "Rk"),]
+  for (i in 1:nrow(tot)){
+    for (j in 1:ncol(tot)){
+      if (tot[i,j] == ""){
+        tot[i,j] = 0
       } else{
-        adv[i,j] = adv[i,j]
+        tot[i,j] = tot[i,j]
       }
     }
   }
-  adv$Yr = year
-  adv = adv %>% distinct(Player, .keep_all = T)
-  return(adv)
+  tot$Yr = year
+  if (length(which(names(tot) == "FT")) == 2){
+    names(tot)[which(names(tot) == "FT")[2]] = "FT."
+  }
+  tot = tot %>% distinct(Rk, .keep_all = T)
+  tot = tot[,-1]
+  for (i in 2:nrow(tot)){
+    if (tot$Player[i] == tot$Player[i-1]){
+      tot$Player[i] = paste(tot$Player[i], "(2)", collapse = "")
+    } else{
+      tot$Player[i] = tot$Player[i]
+    }
+  }
+  
+  return(tot)
 }
 g1 = read.csv('newdata/G1loadings.csv')[,-1]
 g2 = read.csv('newdata/G2loadings.csv')[,-1]
@@ -97,6 +112,7 @@ for (i in 1952:2020){
     Vol = c(Vol, t(abs(loa2))%*%t(as.matrix(fdf[i,vol])))
   }
   fdf_ = cbind.data.frame(fdf, Eff, Vol)
+  
   fdf_$Player = iconv(fdf_$Player, to="ASCII//TRANSLIT")
   as.list <- read.csv(paste0('aslists/as', year, '.csv'))$Player
   for (i in 1:nrow(fdf_)){if (fdf_$Player[i] %in% as.list){fdf_$allstar[i] = 1} else{fdf_$allstar[i] = 0}}
@@ -152,6 +168,111 @@ for (i in 1:nrow(fin)){
     fin$Player[i] = "Taurean Waller-Prince"
   }
 }
+for (i in 1:nrow(fin)){
+  if (fin$Player[i] == "Chris Wright" & fin$Yr[i] == 2013){
+    fin$Player[i] = "Chris Wright (2)"
+  }
+  if (fin$Player[i] == "Sam Williams" & fin$Yr[i] >= 1980){
+    fin$Player[i] = "Sam Williams (2)"
+  }
+  if (fin$Player[i] == "Reggie Williams" & fin$Yr[i] >= 1998){
+    fin$Player[i] = "Reggie Williams (2)"
+  }
+  if (fin$Player[i] == "Greg Smith" & fin$Yr[i] >= 1996){
+    fin$Player[i] = "Greg Smith (2)"
+  }
+  if (fin$Player[i] == "Jack Turner" & fin$Yr[i] >= 1960){
+    fin$Player[i] = "Jack Turner (2)"
+  }
+  if (fin$Player[i] == "Chris Smith" & fin$Yr[i] >= 1996){
+    fin$Player[i] = "Chris Smith (2)"
+  }
+  if (fin$Player[i] == "Walker Russell" & fin$Yr[i] >= 1989){
+    fin$Player[i] = "Walker Russell (2)"
+  }
+  if (fin$Player[i] == "Jim Paxson" & fin$Yr[i] >= 1959){
+    fin$Player[i] = "Jim Paxson (2)"
+  }
+  if (fin$Player[i] == "George King" & fin$Yr[i] >= 1959){
+    fin$Player[i] = "George King (2)"
+  }
+  if (fin$Player[i] == "Mark Jones" & fin$Yr[i] >= 1987){
+    fin$Player[i] = "Mark Jones (2)"
+  }
+  if (fin$Player[i] == "Bobby Jones" & fin$Yr[i] >= 1987){
+    fin$Player[i] = "Bobby Jones (2)"
+  }
+  if (fin$Player[i] == "Dee Brown" & fin$Yr[i] >= 2003){
+    fin$Player[i] = "Dee Brown (2)"
+  }
+  if (fin$Player[i] == "Mark Davis" & fin$Yr[i] >= 1990){
+    fin$Player[i] = "Mark Davis (2)"
+  }
+  if (fin$Player[i] == "Mike Davis" & fin$Yr[i] >= 1980){
+    fin$Player[i] = "Mike Davis (2)"
+  }
+  if (fin$Player[i] == "Mike Dunleavy" & fin$Yr[i] >= 1991){
+    fin$Player[i] = "Mike Dunleavy Jr."
+  }
+  if (fin$Player[i] == "Patrick Ewing" & fin$Yr[i] >= 2003){
+    fin$Player[i] = "Patrick Ewing Jr."
+  }
+  if (fin$Player[i] == "Cedric Henderson" & fin$Yr[i] >= 1988){
+    fin$Player[i] = "Cedric Henderson (2)"
+  }
+  if (fin$Player[i] == "Gerald Henderson" & fin$Yr[i] >= 1994){
+    fin$Player[i] = "Gerald Henderson (2)"
+  }
+  if (fin$Player[i] == "Luke Jackson" & fin$Yr[i] >= 1994){
+    fin$Player[i] = "Luke Jackson (2)"
+  }
+  if (fin$Player[i] == "Mike James" & fin$Yr[i] >= 2015){
+    fin$Player[i] = "Mike James (2)"
+  }
+  if (fin$Player[i] == "Chris Johnson" & fin$Yr[i] >= 2014){
+    fin$Player[i] = "Chris Johnson (2)"
+  }
+  if (fin$Player[i] == "Eddie Johnson" & fin$Yr[i] >= 1988){
+    fin$Player[i] = "Eddie Johnson (2)"
+  }
+  if (fin$Player[i] == "George Johnson" & fin$Yr[i] >= 1979){
+    fin$Player[i] = "George Johnson (2)"
+  }
+  if (fin$Player[i] == "Ken Johnson" & fin$Yr[i] >= 2002){
+    fin$Player[i] = "Ken Johnson (2)"
+  }
+  if (fin$Player[i] == "Larry Johnson" & fin$Yr[i] >= 1979){
+    fin$Player[i] = "Larry Johnson (2)"
+  }
+  if (grepl("Charles Jones", fin$Player[i]) & fin$Yr[i] >= 1999){
+    fin$Player[i] = "Charles Jones (3)"
+  }
+  if (grepl("Charles Smith", fin$Player[i]) & fin$Yr[i] >= 1998){
+    fin$Player[i] = "Charles Smith (3)"
+  }
+  if (grepl("Michael Smith", fin$Player[i]) & fin$Yr[i] >= 1996){
+    fin$Player[i] = "Michael Smith (2)"
+  }
+}
+fin$Player[which(grepl("Eddie Johnson",fin$Player)&fin$Yr==1986)][1] = "Eddie Johnson (2)"
+fin$Player[which(grepl("Eddie Johnson",fin$Player)&fin$Yr==1986)][2] = "Eddie Johnson"
+fin$Player[which(grepl("Charles Jones",fin$Player)&fin$Yr==1985)][1] = "Charles Jones (2)"
+fin$Player[which(grepl("Charles Jones",fin$Player)&fin$Yr==1985)][2] = "Charles Jones"
+fin$Player[which(grepl("Charles Smith",fin$Player)&fin$Yr==1996)][1] = "Charles Smith (2)"
+fin$Player[which(grepl("Charles Smith",fin$Player)&fin$Yr==1996)][2] = "Charles Smith"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1975))][1] = "George Johnson (2)"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1976))][1] = "George Johnson (2)"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1977))][1] = "George Johnson (2)"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1978))][1] = "George Johnson (2)"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1979))][2] = "George Johnson (3)"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1980))][2] = "George Johnson (3)"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1981))][2] = "George Johnson (3)"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1982))][2] = "George Johnson (3)"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1983))][2] = "George Johnson (3)"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1984))][1] = "George Johnson (3)"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1985))][2] = "George Johnson (3)"
+fin$Player[which(grepl("George Johnson",fin$Player)&(fin$Yr==1986))][2] = "George Johnson (3)"
+
 mismatch = unique(fin$Player[(fin$Player %in% cdf$names) == F])
 fin$issue = ifelse(fin$Player %in% mismatch, 1, 0)
 for (i in 1:nrow(fin)){
@@ -160,7 +281,7 @@ for (i in 1:nrow(fin)){
   } else{
     sp = strsplit(fin$Player[i], "")[[1]]
     sh = paste(sp[1:(length(sp)-4)], collapse = "")
-    if (sh %in% cdf$names){
+    if (sh %in% cdf$names & sp[length(sp)] != ")"){
       fin$Player[i] = sh
       fin$issue[i] = 0
     } else{
