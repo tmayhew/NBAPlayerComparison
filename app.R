@@ -5,7 +5,6 @@ library(shiny)
 library(shinydashboard)
 library(DescTools)
 options(stringsAsFactors = F)
-
 cdf = read.csv("cdf.csv")[,-1]   # comes from NBAplayerLinks.R -- attaches a list of player names to corresponding basketball-reference links
 options = read.csv("options.csv")[,-1]  # comes from options.R -- simply a list of available statistics for the user to choose from
 statindex = read.csv("options2.csv")[,-1]
@@ -16,6 +15,7 @@ cdf$names = as.factor(cdf$names)
 opch = read.csv('lboptions.csv')[,-1]
 playoffsfinaldf = read.csv('playoffsfinaldf.csv')[,-1] 
 tmabb = read.csv('playoffwins/teamcodes.csv')[,-1]
+TSoptions = read.csv("TSoptions.csv")[,-1]
 
 gatherseasons <- function(svector){
   if (any(is.na(svector))){
@@ -378,7 +378,7 @@ scrape_nbadf_playoffs = function(htmlinput, user_player){
     } 
     
     dat_ = dat_[, -ind]
-    dat_ = dat_ %>% mutate(G = as.double(G),`TS%` = as.double(`TS`),FTr = if(is.null(dat_$FTr)){0} else{as.double(FTr)},OWS = as.double(OWS),DWS = as.double(DWS),WS = as.double(WS))
+    dat_ = dat_ %>% mutate(G = as.double(G),`TS%` = as.double(`TS%`),FTr = if(is.null(dat_$FTr)){0} else{as.double(FTr)},OWS = as.double(OWS),DWS = as.double(DWS),WS = as.double(WS))
     dat = dat_ %>% mutate(`ORB%` = if(is.null(dat_$`ORB%`)){0} else{as.double(`ORB%`)},`DRB%` = if(is.null(dat_$`DRB%`)){0} else{as.double(`DRB%`)},
                           `TRB%` = if(is.null(dat_$`TRB%`)){0} else{as.double(`TRB%`)},`AST%` = if(is.null(dat_$`AST%`)){0} else{as.double(`AST%`)},
                           `STL%` = if(is.null(dat_$`STL%`)){0} else{as.double(`STL%`)},`BLK%` = if(is.null(dat_$`BLK%`)){0} else{as.double(`BLK%`)},
@@ -558,6 +558,62 @@ playoffsprimedf = function(player1d, player2d, i = 1){
   }
   return(table)
 } 
+get_gamelog = function(player, year1, year2){
+  year1 = as.numeric(year1)
+  year2 = as.numeric(year2)
+  ayear1 = year1 + 1
+  s = strsplit(as.character(cdf$actual_link[which(cdf$names == player)]), "")[[1]]
+  links = c()
+  for (i in ayear1:year2){links = c(links,paste0(paste(s[1:(length(s)-5)], collapse = ""), "/gamelog/", as.character(i), collapse = ""))}
+  dl = NULL
+  for (j in 1:length(links)){
+    d_ = read_html(links[j]) %>% html_table(fill = T)
+    if (d_ %>% is_empty()){
+      d = NULL
+    } else if (all(is.na(as.numeric(d_[[8]]$PTS)))){
+      d = NULL
+    } else{
+      d = d_[[8]]
+      d = d[-which(d$Date == "Date"),]
+      if (any(is.na(as.numeric(d$PTS)))){d = d[-which(is.na(as.numeric(d$PTS))),]} else{d = d}
+      colnames(d)[which(colnames(d) == "")] = c("at", "Result")
+      colnames(d)[which(colnames(d) == "FG%")] = "FG."
+      colnames(d)[which(colnames(d) == "FT%")] = "FT."
+      colnames(d)[which(colnames(d) == "3P")] = "X3P"
+      colnames(d)[which(colnames(d) == "3PA")] = "X3PA"
+      colnames(d)[which(colnames(d) == "3P%")] = "X3P."
+      colnames(d)[which(colnames(d) == "+/-")] = "Plus.Minus"
+      
+      if (any((colnames %in% colnames(d) == F))){
+        missing = colnames[which((colnames %in% colnames(d) == F))]
+        for (k in 1:length(missing)){
+          d = data.frame(d, n = 0)
+        }
+        length(missing)
+        colnames(d)[(ncol(d)-length(missing) + 1):ncol(d)] = missing
+        d = d %>% select(all_of(colnames))
+      } else{
+        d = d %>% select(all_of(colnames))
+      }
+      for (i in 1:nrow(d)){for (j in 9:ncol(d)){if (d[i,j] == ""){d[i,j] = 0} else{d[i,j]}}}
+    }
+    dl = rbind.data.frame(dl, d)
+    if (dim(dl)[1]!=0){dl = dl %>% distinct(Date, .keep_all = T)} else{dl = dl}
+  }
+  if (dim(dl)[1]==0){
+    dl = NULL
+  } else{
+    dl = data.frame(Player = player, dl) %>% mutate(G = 1:nrow(dl))
+  }
+  return(dl)
+}
+get_GLcomp = function(player1, p1s, p1e, player2, p2s, p2e){
+  GL1 = get_gamelog(player1, p1s, p1e)
+  if (is.null(GL1)){GL1 = NULL} else{GL1$Player = paste0(GL1$Player[1], " (", p1s, "-", p1e, ")", collapse = "")}
+  GL2 = get_gamelog(player2, p2s, p2e)
+  if (is.null(GL2)){GL2 = NULL} else{GL2$Player = paste0(GL2$Player[1], " (", p2s, "-", p2e, ")", collapse = "")}
+  return(rbind.data.frame(GL1, GL2))
+}
 
 ui <- fluidPage(
   headerPanel("NBA Player Comparison"),
@@ -607,7 +663,23 @@ ui <- fluidPage(
                          div(style="display: inline-block;vertical-align:top",selectInput('team', "Team:", c(tmabb$Tm), selected = "-")),
                          div(style="display: inline-block;vertical-align:top; width: 150px",textInput('teamyear', "Year:")),
                          formattableOutput("teamplayoff")
-                         )
+                         ),
+                tabPanel("Game-to-Game Rolling Averages",
+                         br(), br(),
+                         div(style="display: inline-block;vertical-align:top",titlePanel(h3("Player 1:"))),
+                         div(style="display: inline-block;vertical-align:top; width: 50px;",HTML("<br>")),
+                         div(style="display: inline-block;vertical-align:top; width: 150px",selectInput('p1start', "Starting year:", c("-",1952:2019), selected = "-")),
+                         div(style="display: inline-block;vertical-align:top; width: 150px",selectInput('p1end', "Ending year:", c("-",1953:2020), selected = "-")),
+                         div(style="display: inline-block;vertical-align:top; width: 50px;",HTML("<br>")),
+                         div(style="display: inline-block;vertical-align:bottom; width: 150px",selectInput('TSstat', "Statistic:", TSoptions$useroption, selected = "Game Score")),
+                         br(),
+                         div(style="display: inline-block;vertical-align:top",titlePanel(h3("Player 2:"))),
+                         div(style="display: inline-block;vertical-align:top; width: 50px;",HTML("<br>")),
+                         div(style="display: inline-block;vertical-align:top; width: 150px",selectInput('p2start', "Starting year:", c("-",1952:2019), selected = "-")),
+                         div(style="display: inline-block;vertical-align:top; width: 150px",selectInput('p2end', "Ending year:", c("-",1953:2020), selected = "-")),
+                         div(style="display: inline-block;vertical-align:top; width: 50px;",HTML("<br>")),
+                         div(style="display: inline-block;vertical-align:bottom; width: 150px",selectInput('TSrollnum', "Rolling Average (Games):", paste0(1:82), selected = "1-game")),
+                         plotOutput("TSplot"))
     )
   )
 )
@@ -620,6 +692,10 @@ server <- function(input, output, session) {
   player2SC <- reactive({scrape_nbadf(get_htmlnba(input$player2), input$player2)})
   player2AC <- reactive({scrape_accolades(get_htmlnba(input$player2), input$player2)})
   player2PSC <- reactive({scrape_nbadf_playoffs(get_htmlnba(input$player2), input$player2)})
+  
+  GLcomp <- reactive({get_GLcomp(input$player1, input$p1start, input$p1end, input$player2, input$p2start, input$p2end)})
+  TSuser_sel <- reactive({input$TSstat})
+  TSrollnum <- reactive({as.numeric(input$TSrollnum)})
   
   primey <- reactive({input$pkyrs})
   playoffprimey <- reactive({input$playoffpkyrs})
@@ -1034,8 +1110,8 @@ server <- function(input, output, session) {
   output$teamplayoff <- renderFormattable({
     team_ = teamChoice()
     year = teamYear()
-    team = tmabb$Abb[which(tmabb$Tm == team_)]
-    df = playoffsfinaldf %>% filter(Tm == team, Yr == year) %>% arrange(desc(totPlayoffShare))
+    team = ifelse((year < 2014 & team_ == "Charlotte Hornets"), "CHH", tmabb$Abb[which(tmabb$Tm == team_)])
+    df = playoffsfinaldf %>% filter(Tm == team, Yr == year) %>% arrange(desc(totPlayoffShare), desc(Contrib))
     if (is.na(df[1,1])){
       d = data.frame(c("Select a year and a team to view the playoff contribution of each player."))
       names(d) = " "
@@ -1052,10 +1128,131 @@ server <- function(input, output, session) {
           }
         }
       }
+      
       bold <- formatter("span", style = x ~ style("font-weight" = "bold"))
       formattable(df, list(TPSS = bold))
     } 
   })
+  
+  output$TSplot <- renderPlot({
+    if ("-" %in% c(input$p1start, input$p2start, input$p1end, input$p2end)){
+      ggplot() + ggtitle("Select years for each player to view game-by-game statistics.") + theme_minimal()
+    } else if (input$p1start >= input$p1end | input$p2start >= input$p2end){
+      ggplot() + ggtitle("Years are in the wrong order; start year should come before end year.") + theme_minimal()
+    } else if (abs(as.numeric(input$p1end)-as.numeric(input$p1start)) >= 21 | abs(as.numeric(input$p2end)-as.numeric(input$p2start)) >= 21){
+      ggplot() + ggtitle("Years are too far apart; selections should be within 20 years.") + theme_minimal()
+    } else{
+      GL = GLcomp()
+      user_sel = TSuser_sel()
+      roll_num = TSrollnum()
+      
+      sel = TSoptions$actual[which(TSoptions$useroption == user_sel)]
+      if (sel %in% c("FG.", "X3P.", "FT.")){
+        if (sel == "FG."){
+          toplot = GL[,which(names(GL) %in% c("Player", "G", "Date", "FG", "FGA"))]
+          toplot[,4] = as.numeric(toplot[,4])
+          toplot[,5] = as.numeric(toplot[,5])
+          toplot[,6] = 0
+          
+          player1df = toplot %>% filter(grepl(input$player1, Player))
+          player2df = toplot %>% filter(grepl(input$player2, Player))
+          
+          if (nrow(player1df) < roll_num | nrow(player2df) < roll_num){
+            ggplot() + ggtitle("One or both players selected don't have enough games to produce a rolling average.", "Choose different seasons or reduce the rolling average selection.") + theme_minimal()
+          } else{
+            for (i in 1:nrow(player1df)){if (i < roll_num){player1df[,6][i] = sum(player1df$FG[1:i])/sum(player1df$FGA[1:i])} else{player1df[,6][i] = sum(player1df$FG[(i-(roll_num-1)):i])/sum(player1df$FGA[(i-(roll_num-1)):i])}}
+            player1df = player1df[(roll_num):nrow(player1df),]
+            for (i in 1:nrow(player2df)){if (i < roll_num){player2df[,6][i] = sum(player2df$FG[1:i])/sum(player2df$FGA[1:i])} else{player2df[,6][i] = sum(player2df$FG[(i-(roll_num-1)):i])/sum(player2df$FGA[(i-(roll_num-1)):i])}}
+            player2df = player2df[(roll_num):nrow(player2df),]
+            toplot = rbind.data.frame(player1df, player2df)
+            colnames(toplot)[6] = "V5"
+            toplot$V5[which(is.nan(toplot$V5))] = 0
+          }
+        } else if (sel == "X3P."){
+          toplot = GL[,which(names(GL) %in% c("Player", "G", "Date", "X3P", "X3PA"))]
+          toplot[,4] = as.numeric(toplot[,4])
+          toplot[,5] = as.numeric(toplot[,5])
+          toplot[,6] = 0
+          
+          player1df = toplot %>% filter(grepl(input$player1, Player))
+          player2df = toplot %>% filter(grepl(input$player2, Player))
+          
+          if (nrow(player1df) < roll_num | nrow(player2df) < roll_num){
+            ggplot() + ggtitle("One or both players selected don't have enough games to produce a rolling average.", "Choose different seasons or reduce the rolling average selection.") + theme_minimal()
+          } else{
+            for (i in 1:nrow(player1df)){if (i < roll_num){player1df[,6][i] = sum(player1df$X3P[1:i])/sum(player1df$X3PA[1:i])} else{player1df[,6][i] = sum(player1df$X3P[(i-(roll_num-1)):i])/sum(player1df$X3PA[(i-(roll_num-1)):i])}}
+            player1df = player1df[(roll_num):nrow(player1df),]
+            for (i in 1:nrow(player2df)){if (i < roll_num){player2df[,6][i] = sum(player2df$X3P[1:i])/sum(player2df$X3PA[1:i])} else{player2df[,6][i] = sum(player2df$X3P[(i-(roll_num-1)):i])/sum(player2df$X3PA[(i-(roll_num-1)):i])}}
+            player2df = player2df[(roll_num):nrow(player2df),]
+            toplot = rbind.data.frame(player1df, player2df)
+            colnames(toplot)[6] = "V5"
+            toplot$V5[which(is.nan(toplot$V5))] = 0
+          }
+        } else{
+          toplot = GL[,which(names(GL) %in% c("Player", "G", "Date", "FT", "FTA"))]
+          toplot[,4] = as.numeric(toplot[,4])
+          toplot[,5] = as.numeric(toplot[,5])
+          toplot[,6] = 0
+          
+          player1df = toplot %>% filter(grepl(input$player1, Player))
+          player2df = toplot %>% filter(grepl(input$player2, Player))
+          
+          if (nrow(player1df) < roll_num | nrow(player2df) < roll_num){
+            ggplot() + ggtitle("One or both players selected don't have enough games to produce a rolling average.", "Choose different seasons or reduce the rolling average selection.") + theme_minimal()
+          } else{
+            for (i in 1:nrow(player1df)){if (i < roll_num){player1df[,6][i] = sum(player1df$FT[1:i])/sum(player1df$FTA[1:i])} else{player1df[,6][i] = sum(player1df$FT[(i-(roll_num-1)):i])/sum(player1df$FTA[(i-(roll_num-1)):i])}}
+            player1df = player1df[(roll_num):nrow(player1df),]
+            for (i in 1:nrow(player2df)){if (i < roll_num){player2df[,6][i] = sum(player2df$FT[1:i])/sum(player2df$FTA[1:i])} else{player2df[,6][i] = sum(player2df$FT[(i-(roll_num-1)):i])/sum(player2df$FTA[(i-(roll_num-1)):i])}}
+            player2df = player2df[(roll_num):nrow(player2df),]
+            toplot = rbind.data.frame(player1df, player2df)
+            colnames(toplot)[6] = "V5"
+            toplot$V5[which(is.nan(toplot$V5))] = 0
+          }
+        }
+      } else{
+        toplot = GL[,which(names(GL) %in% c("Player", "G", "Date", sel))]
+        toplot[,sel] = as.numeric(toplot[,sel])
+        if (dim(toplot)[1] != 0){toplot[,5] = 0} else{toplot = NULL}
+        
+        if (is.null(toplot) == F){
+          player1df = toplot %>% filter(grepl(input$player1, Player))
+          player2df = toplot %>% filter(grepl(input$player2, Player))
+          
+          if (nrow(player1df) < roll_num | nrow(player2df) < roll_num){
+            ggplot() + ggtitle("One or both players selected don't have enough games to produce a rolling average.", "Choose different seasons or reduce the rolling average selection.") + theme_minimal()
+          } else{
+            for (i in 1:length(player1df[,sel])){if (i < roll_num){player1df[,5][i] = mean(player1df[,sel][1:i])} else{player1df[,5][i] = mean(player1df[,sel][(i-(roll_num-1)):i])}}
+            player1df = player1df[(roll_num):nrow(player1df),]
+            for (i in 1:length(player2df[,sel])){if (i < roll_num){player2df[,5][i] = mean(player2df[,sel][1:i])} else{player2df[,5][i] = mean(player2df[,sel][(i-(roll_num-1)):i])}}
+            player2df = player2df[(roll_num):nrow(player2df),]
+            toplot = rbind.data.frame(player1df, player2df)
+          }
+        } else{
+          toplot = NULL
+        }
+      }
+      if (is.null(toplot)){
+        ggplot() + ggtitle("Both players entered do not have data for those years.", "Try a different combination.") + theme_minimal()
+      } else{
+        if (toplot$Player[1] != toplot$Player[nrow(toplot)]){
+          toplot$Player = factor(toplot$Player, levels = c(toplot$Player[1], toplot$Player[nrow(toplot)]))
+          tmtab = table(GL$Player, GL$Tm)
+          if (colnames(tmtab) %>% length() == 1){
+            playerTeam = colnames(tmtab)
+          } else{
+            tmtab = tmtab[which(rownames(table(GL$Player, GL$Tm)) == GL$Player[1]),]
+            playerTeam = names(which(tmtab == max(tmtab)))
+          }
+          tmhex = read.csv('newdata/teamabbreviations.csv')[,-1] # team hex colors
+          if (playerTeam %in% tmhex$abb){color = tmhex$hex[grep(playerTeam, tmhex$abb)]} else{color = "black"}
+          
+          toplot %>% ggplot(aes(x = G, y = V5)) + geom_line(lwd = 1.175, aes(color = as.factor(Player))) + geom_point(aes(color = as.factor(Player)), data = toplot[which(toplot$V5 == max(toplot$V5))[1],]) + theme_bw() + scale_y_continuous(name = user_sel) + ggtitle(paste(toplot$Player[1], "vs.", toplot$Player[nrow(toplot)]), subtitle = paste0(roll_num, "-game rolling average")) + geom_text(data = toplot[which(toplot$V5 == max(toplot$V5))[1],], aes(label = paste0(Date, ": ", round(V5, ifelse(sel %in% c("FG.", "X3P.", "FT."), 4, 2)))), position = position_nudge(y = 0.20*(sd(toplot$V5)))) + scale_color_manual("", values = c(color, "grey70")) + theme(legend.position = "top") + scale_x_continuous("Game")
+        } else{
+          ggplot() + ggtitle("One player entered does not have data for those years.", "Try a different combination.") + theme_minimal()
+        }
+      }
+    }
+  }, height = 550)
 }
 
 shinyApp(ui, server)
