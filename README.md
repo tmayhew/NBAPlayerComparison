@@ -14,6 +14,10 @@ This app allows the user to input two former or current NBA players and then ana
 
 * Individual Season Production and Efficiency
 
+* Playoff Performance Metrics
+
+* Game-to-Game Rolling Average Statistics
+
 ## Updates:
 
   At the beginning of any new season or the end of any drafting or signing period, run the NBAplayerLinks.R file. This will update the players list with any new players that have entered the NBA and registered minutes since the last update.
